@@ -1,6 +1,6 @@
 ## Summary
 
-This repository is a small Python 3.13+ project called `local-ai` (derived from `python-boilerplate`). It contains a minimal library in `src/local_ai` and a single unit test in `tests/`. The project uses `pyproject.toml` with `uv_build` as the build backend and development tools configured (pytest, mypy, ruff, etc.).
+This repository is a small Python 3.13+ project called `local_ai`. It contains a minimal library in `src/local_ai` and a single unit test in `tests/`. The project uses `pyproject.toml` with `uv_build` as the build backend and development tools configured (pytest, mypy, ruff, etc.).
 
 Here are the goals of this project:
 
