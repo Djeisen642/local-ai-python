@@ -14,6 +14,8 @@ dependencies = [
     "faster-whisper>=1.0.0",
     "pyaudio>=0.2.11",
     "webrtcvad>=2.0.10",
+    "psutil>=7.1.0",
+    "torch>=2.8.0",
 ]
 
 [project.urls]
@@ -33,11 +35,18 @@ dev = [
   "bandit>=1.8.6",
   "docformatter>=1.7.7",
   "ruff>=0.12.9",
+  "numpy>=1.24.0",
 ]
 
 [tool.pytest.ini_options]
 addopts = "-vvv"
 testpaths = "tests"
+asyncio_mode = "auto"
+markers = [
+    "integration: marks tests as integration tests (may be slow)",
+    "unit: marks tests as fast unit tests",
+    "performance: marks tests as performance benchmarks (may be very slow)"
+]
 
 [tool.ruff]
 extend-exclude = [
@@ -48,6 +57,11 @@ extend-exclude = [
 target-version = "py313"
 line-length = 90
 src = ["src", "tests"]
+
+# Specific configuration for speech_to_text module
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["S101"]
+"src/local_ai/speech_to_text/*.py" = []
 
 [tool.ruff.lint]
 extend-select = [
@@ -102,9 +116,14 @@ extend-select = [
   "W",
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["S101"]
-
 [tool.mypy]
 files = ["src", "tests"]
 strict = "true"
+
+# Strict type checking for speech_to_text module
+[[tool.mypy.overrides]]
+module = "local_ai.speech_to_text.*"
+strict = true
+warn_return_any = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
