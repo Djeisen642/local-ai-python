@@ -134,3 +134,274 @@ class TestVoiceActivityDetector:
         vad2 = VoiceActivityDetector(sample_rate=8000, frame_duration=20)
         expected_frame_size2 = int(8000 * 0.020)  # 20ms at 8kHz
         assert vad2.frame_size == expected_frame_size2
+
+
+class TestNaturalBreakDetection:
+    """Test cases for natural break detection functionality."""
+    
+    @pytest.fixture
+    def vad(self) -> VoiceActivityDetector:
+        """Create a VoiceActivityDetector instance for testing."""
+        return VoiceActivityDetector()
+    
+    def test_initial_state(self, vad: VoiceActivityDetector) -> None:
+        """Test initial state of natural break detection."""
+        assert not vad.is_in_speech_segment()
+        assert vad.get_current_silence_duration() == 0.0
+        assert vad.get_speech_segment_duration() == 0.0
+        assert not vad.detect_speech_end()
+    
+    def test_reset_silence_timer_starts_speech_segment(self, vad: VoiceActivityDetector) -> None:
+        """Test that resetting silence timer starts a speech segment."""
+        current_time = 1000.0
+        
+        # Initially not in speech segment
+        assert not vad.is_in_speech_segment()
+        
+        # Reset silence timer (simulating speech detection)
+        vad.reset_silence_timer(current_time)
+        
+        # Should now be in speech segment
+        assert vad.is_in_speech_segment()
+        assert vad.get_speech_segment_duration(current_time) == 0.0
+    
+    def test_start_silence_timer(self, vad: VoiceActivityDetector) -> None:
+        """Test starting silence timer."""
+        current_time = 1000.0
+        
+        # Start speech segment first
+        vad.reset_silence_timer(current_time)
+        
+        # Start silence timer
+        vad.start_silence_timer(current_time + 1.0)
+        
+        # Should have silence duration
+        assert vad.get_current_silence_duration(current_time + 2.0) == 1.0
+    
+    def test_silence_duration_tracking(self, vad: VoiceActivityDetector) -> None:
+        """Test silence duration tracking over time."""
+        base_time = 1000.0
+        
+        # Start speech segment
+        vad.reset_silence_timer(base_time)
+        
+        # Start silence
+        vad.start_silence_timer(base_time + 1.0)
+        
+        # Check silence duration at different times
+        assert vad.get_current_silence_duration(base_time + 1.5) == 0.5
+        assert vad.get_current_silence_duration(base_time + 2.0) == 1.0
+        assert vad.get_current_silence_duration(base_time + 3.0) == 2.0
+    
+    def test_speech_segment_duration_tracking(self, vad: VoiceActivityDetector) -> None:
+        """Test speech segment duration tracking."""
+        base_time = 1000.0
+        
+        # Start speech segment
+        vad.reset_silence_timer(base_time)
+        
+        # Check segment duration at different times
+        assert vad.get_speech_segment_duration(base_time + 1.0) == 1.0
+        assert vad.get_speech_segment_duration(base_time + 5.0) == 5.0
+        assert vad.get_speech_segment_duration(base_time + 10.0) == 10.0
+    
+    def test_detect_speech_end_short_pause(self, vad: VoiceActivityDetector) -> None:
+        """Test that short pauses don't trigger speech end detection."""
+        base_time = 1000.0
+        
+        # Start speech segment
+        vad.reset_silence_timer(base_time)
+        
+        # Start silence (short pause)
+        vad.start_silence_timer(base_time + 1.0)
+        
+        # Check at short pause duration (should not end)
+        assert not vad.detect_speech_end(base_time + 1.2)  # 0.2s silence
+    
+    def test_detect_speech_end_medium_pause(self, vad: VoiceActivityDetector) -> None:
+        """Test that medium pauses trigger speech end detection."""
+        base_time = 1000.0
+        
+        # Start speech segment
+        vad.reset_silence_timer(base_time)
+        
+        # Start silence (medium pause)
+        vad.start_silence_timer(base_time + 1.0)
+        
+        # Check at medium pause duration (should end)
+        assert vad.detect_speech_end(base_time + 2.0)  # 1.0s silence (> 0.8s default)
+    
+    def test_detect_speech_end_long_pause(self, vad: VoiceActivityDetector) -> None:
+        """Test that long pauses definitely trigger speech end detection."""
+        base_time = 1000.0
+        
+        # Start speech segment
+        vad.reset_silence_timer(base_time)
+        
+        # Start silence (long pause)
+        vad.start_silence_timer(base_time + 1.0)
+        
+        # Check at long pause duration (should definitely end)
+        assert vad.detect_speech_end(base_time + 4.0)  # 3.0s silence (> 2.0s default)
+    
+    def test_detect_speech_end_max_segment_duration(self, vad: VoiceActivityDetector) -> None:
+        """Test that very long segments are forced to end."""
+        base_time = 1000.0
+        
+        # Start speech segment
+        vad.reset_silence_timer(base_time)
+        
+        # No silence, but very long segment
+        # Check at max segment duration (should end even without silence)
+        assert vad.detect_speech_end(base_time + 31.0)  # 31s > 30s max
+    
+    def test_detect_speech_end_not_in_segment(self, vad: VoiceActivityDetector) -> None:
+        """Test that speech end detection returns False when not in speech segment."""
+        # Not in speech segment
+        assert not vad.detect_speech_end()
+    
+    def test_finalize_speech_segment(self, vad: VoiceActivityDetector) -> None:
+        """Test finalizing speech segment resets state."""
+        base_time = 1000.0
+        
+        # Start speech segment and silence
+        vad.reset_silence_timer(base_time)
+        vad.start_silence_timer(base_time + 1.0)
+        
+        # Should be in speech segment with silence
+        assert vad.is_in_speech_segment()
+        assert vad.get_current_silence_duration(base_time + 2.0) > 0
+        
+        # Finalize segment
+        vad.finalize_speech_segment()
+        
+        # Should reset state
+        assert not vad.is_in_speech_segment()
+        assert vad.get_current_silence_duration() == 0.0
+        assert vad.get_speech_segment_duration() == 0.0
+    
+    def test_pause_duration_recording(self, vad: VoiceActivityDetector) -> None:
+        """Test that pause durations are recorded for adaptation."""
+        base_time = 1000.0
+        
+        # Simulate several speech-pause cycles
+        for i in range(3):
+            # Start speech
+            vad.reset_silence_timer(base_time + i * 10)
+            
+            # Start silence
+            vad.start_silence_timer(base_time + i * 10 + 2)
+            
+            # Resume speech (this should record the pause duration)
+            vad.reset_silence_timer(base_time + i * 10 + 3)  # 1s pause
+        
+        # Check that pause durations were recorded (internal state)
+        # We can't directly access _recent_pause_durations, but we can test
+        # the effect through adaptive thresholds
+        initial_thresholds = vad.get_adaptive_thresholds()
+        
+        # Finalize to trigger adaptation
+        vad.finalize_speech_segment()
+        
+        # Thresholds should exist (may or may not have changed depending on implementation)
+        final_thresholds = vad.get_adaptive_thresholds()
+        assert "short_pause" in final_thresholds
+        assert "medium_pause" in final_thresholds
+        assert "long_pause" in final_thresholds
+    
+    def test_adaptive_thresholds_initial_values(self, vad: VoiceActivityDetector) -> None:
+        """Test that adaptive thresholds start with default values."""
+        thresholds = vad.get_adaptive_thresholds()
+        
+        # Should start with default values from config
+        from local_ai.speech_to_text.config import (
+            SHORT_PAUSE_THRESHOLD, MEDIUM_PAUSE_THRESHOLD, LONG_PAUSE_THRESHOLD
+        )
+        
+        assert thresholds["short_pause"] == SHORT_PAUSE_THRESHOLD
+        assert thresholds["medium_pause"] == MEDIUM_PAUSE_THRESHOLD
+        assert thresholds["long_pause"] == LONG_PAUSE_THRESHOLD
+    
+    def test_reset_adaptive_thresholds(self, vad: VoiceActivityDetector) -> None:
+        """Test resetting adaptive thresholds to defaults."""
+        # Simulate some adaptation by recording pause durations
+        base_time = 1000.0
+        
+        # Create several short pauses to potentially adapt thresholds
+        for i in range(5):
+            vad.reset_silence_timer(base_time + i * 5)
+            vad.start_silence_timer(base_time + i * 5 + 1)
+            vad.reset_silence_timer(base_time + i * 5 + 1.5)  # 0.5s pauses
+        
+        vad.finalize_speech_segment()  # Trigger adaptation
+        
+        # Reset thresholds
+        vad.reset_adaptive_thresholds()
+        
+        # Should be back to defaults
+        thresholds = vad.get_adaptive_thresholds()
+        from local_ai.speech_to_text.config import (
+            SHORT_PAUSE_THRESHOLD, MEDIUM_PAUSE_THRESHOLD, LONG_PAUSE_THRESHOLD
+        )
+        
+        assert thresholds["short_pause"] == SHORT_PAUSE_THRESHOLD
+        assert thresholds["medium_pause"] == MEDIUM_PAUSE_THRESHOLD
+        assert thresholds["long_pause"] == LONG_PAUSE_THRESHOLD
+    
+    def test_adaptive_threshold_bounds(self, vad: VoiceActivityDetector) -> None:
+        """Test that adaptive thresholds stay within reasonable bounds."""
+        base_time = 1000.0
+        
+        # Simulate very short pauses (should be clamped)
+        for i in range(10):
+            vad.reset_silence_timer(base_time + i * 2)
+            vad.start_silence_timer(base_time + i * 2 + 0.5)
+            vad.reset_silence_timer(base_time + i * 2 + 0.6)  # 0.1s pauses
+        
+        vad.finalize_speech_segment()
+        
+        thresholds = vad.get_adaptive_thresholds()
+        
+        # Thresholds should be within reasonable bounds
+        assert 0.1 <= thresholds["short_pause"] <= 1.0
+        assert 0.3 <= thresholds["medium_pause"] <= 3.0
+        assert 1.0 <= thresholds["long_pause"] <= 5.0
+        
+        # Long pause should always be greater than medium pause
+        assert thresholds["long_pause"] > thresholds["medium_pause"]
+    
+    def test_speech_pattern_scenarios(self, vad: VoiceActivityDetector) -> None:
+        """Test different speech pattern scenarios."""
+        base_time = 1000.0
+        
+        # Scenario 1: Quick command (short speech, medium pause)
+        vad.reset_silence_timer(base_time)
+        vad.start_silence_timer(base_time + 0.5)  # Short speech
+        
+        # Should detect end after medium pause
+        assert not vad.detect_speech_end(base_time + 1.0)  # 0.5s silence
+        assert vad.detect_speech_end(base_time + 1.5)      # 1.0s silence
+        
+        vad.finalize_speech_segment()
+        
+        # Scenario 2: Long conversation (long speech, short pauses)
+        vad.reset_silence_timer(base_time + 10)
+        
+        # Simulate natural pauses during long speech
+        vad.start_silence_timer(base_time + 15)
+        assert not vad.detect_speech_end(base_time + 15.3)  # Short pause, continue
+        
+        vad.reset_silence_timer(base_time + 15.4)  # Resume speech
+        vad.start_silence_timer(base_time + 20)
+        assert vad.detect_speech_end(base_time + 21)  # Medium pause, end
+    
+    def test_default_time_handling(self, vad: VoiceActivityDetector) -> None:
+        """Test that methods work with default time (time.time())."""
+        # These should not raise exceptions when called without time parameter
+        vad.reset_silence_timer()
+        vad.start_silence_timer()
+        
+        # Should return reasonable values
+        assert isinstance(vad.get_current_silence_duration(), float)
+        assert isinstance(vad.get_speech_segment_duration(), float)
+        assert isinstance(vad.detect_speech_end(), bool)

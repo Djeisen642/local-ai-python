@@ -52,11 +52,22 @@ This feature enables the local AI application to convert real-time streaming spe
 
 ### Requirement 5
 
-**User Story:** As a user, I want voice activation detection, so that the system only processes speech when I'm actually talking and ignores background noise.
+**User Story:** As a user, I want voice activation detection with natural break recognition, so that the system processes complete thoughts and sentences rather than continuous streams.
 
 #### Acceptance Criteria
 
 1. WHEN the system is listening THEN it SHALL detect when speech begins and automatically start transcription
-2. WHEN I stop speaking THEN the system SHALL detect the end of speech and finalize the current transcription
-3. WHEN only background noise is present THEN the system SHALL remain in listening mode without processing
-4. WHEN voice detection parameters are needed THEN the system SHALL use pre-configured constants for sensitivity and thresholds
+2. WHEN I pause naturally while speaking THEN the system SHALL continue listening without finalizing transcription
+3. WHEN I finish a complete thought or sentence THEN the system SHALL detect the natural break and provide the transcription
+4. WHEN only background noise is present THEN the system SHALL remain in listening mode without processing
+
+### Requirement 6
+
+**User Story:** As a user, I want the system to handle different types of speech patterns, so that it works well for both quick commands and longer conversations.
+
+#### Acceptance Criteria
+
+1. WHEN I speak a short command THEN the system SHALL transcribe it after a brief pause
+2. WHEN I speak in longer sentences THEN the system SHALL wait for natural sentence boundaries before transcribing
+3. WHEN I speak very long segments THEN the system SHALL provide transcription in reasonable chunks to avoid excessive delays
+4. WHEN I have different speaking patterns THEN the system SHALL adapt to my natural rhythm and pauses

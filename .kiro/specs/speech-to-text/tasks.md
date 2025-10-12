@@ -44,6 +44,14 @@
   - Add configurable sensitivity through constants
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
+- [x] 3.3 Add natural break detection to VoiceActivityDetector
+
+  - Write tests for silence duration tracking and natural break detection
+  - Implement silence timer and speech end detection methods
+  - Add adaptive threshold adjustment based on speaker patterns
+  - Test different pause durations (short, medium, long) and appropriate responses
+  - _Requirements: 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4_
+
 - [x] 4. TDD: Whisper transcription engine
 - [x] 4.1 Write tests for WhisperTranscriber class interface
 

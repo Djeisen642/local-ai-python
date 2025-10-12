@@ -18,6 +18,16 @@ TRANSCRIPTION_TIMEOUT = 30  # seconds
 MIN_SPEECH_DURATION = 0.5   # seconds
 MAX_SILENCE_DURATION = 2.0  # seconds before finalizing transcription
 
+# Natural Break Detection
+SHORT_PAUSE_THRESHOLD = 0.3  # seconds - normal speech rhythm pause
+MEDIUM_PAUSE_THRESHOLD = 0.8 # seconds - likely sentence boundary
+LONG_PAUSE_THRESHOLD = 2.0   # seconds - definite end of speech segment
+MAX_SEGMENT_DURATION = 30.0  # seconds - force transcription of very long segments
+
+# Adaptive Behavior
+SILENCE_ADAPTATION_FACTOR = 0.1  # How quickly to adapt to speaker patterns
+NOISE_COMPENSATION_THRESHOLD = 0.02  # Adjust VAD sensitivity based on background noise
+
 # Performance Optimization Presets
 OPTIMIZATION_PRESETS = {
     "latency": {

@@ -32,9 +32,10 @@ The system follows a producer-consumer pattern with three main components:
 ### Component Interaction Flow:
 
 1. **Audio Input**: Continuously captures audio from microphone in small chunks
-2. **Audio Buffer & VAD**: Buffers audio and detects speech activity
-3. **Transcription**: Processes speech segments through Ollama when voice is detected
-4. **Output**: Returns transcribed text with minimal latency
+2. **Audio Buffer & VAD**: Buffers audio, detects speech activity, and tracks silence periods
+3. **Natural Break Detection**: Identifies when user has finished speaking based on silence duration
+4. **Transcription**: Processes complete speech segments when natural breaks are detected
+5. **Output**: Returns transcribed text for each complete thought/sentence
 
 ## Components and Interfaces
 
@@ -60,21 +61,24 @@ class AudioCapture:
 
 ### 2. VoiceActivityDetector Class
 
-**Purpose**: Detects when speech is present in audio stream
+**Purpose**: Detects when speech is present in audio stream and identifies natural breaks
 
 ```python
 class VoiceActivityDetector:
     def __init__(self, sample_rate: int = 16000, frame_duration: int = 30)
     def is_speech(self, audio_chunk: bytes) -> bool
     def get_speech_segments(self, audio_buffer: List[bytes]) -> List[bytes]
+    def detect_speech_end(self, silence_duration: float) -> bool
+    def reset_silence_timer(self) -> None
 ```
 
 **Key Features:**
 
 - WebRTC VAD implementation for robust speech detection
-- Configurable sensitivity through constants
+- Natural break detection through silence duration tracking
+- Configurable sensitivity and silence thresholds through constants
 - Handles background noise filtering
-- Returns speech segments for transcription
+- Returns complete speech segments when natural breaks are detected
 
 ### 3. WhisperTranscriber Class
 
@@ -148,6 +152,13 @@ class SpeechSegment:
     start_time: float
     end_time: float
     is_complete: bool
+    silence_duration: float  # Duration of silence after speech
+
+@dataclass
+class SilenceState:
+    is_silent: bool
+    silence_start_time: float
+    current_silence_duration: float
 ```
 
 ## Error Handling
@@ -193,6 +204,28 @@ class SpeechSegment:
 - **Resource monitoring**: Ensure reasonable CPU/memory usage
 - **Concurrent operation**: Test multiple simultaneous transcription requests
 
+## Natural Break Detection Strategy
+
+The system implements intelligent speech segmentation to provide natural, conversational transcription:
+
+### Silence-Based Segmentation
+
+- **Short Pauses (0.3-0.8s)**: Considered normal speech rhythm, continue buffering
+- **Medium Pauses (0.8-2.0s)**: Likely end of sentence/thought, trigger transcription
+- **Long Pauses (>2.0s)**: Definite end of speech segment, finalize transcription
+
+### Adaptive Thresholds
+
+- **Dynamic Adjustment**: Silence thresholds adapt based on speaker patterns
+- **Context Awareness**: Different thresholds for different types of speech (commands vs conversation)
+- **Background Noise Compensation**: Adjust detection sensitivity based on ambient noise levels
+
+### Speech Segment Management
+
+- **Buffer Management**: Maintain rolling buffer of recent audio for context
+- **Overlap Handling**: Ensure smooth transitions between segments
+- **Incomplete Segment Recovery**: Handle interruptions and partial speech gracefully
+
 ## Model Selection Strategy
 
 For an 8GB GPU setup, the optimal choice is **Whisper Small**:
@@ -226,7 +259,14 @@ WHISPER_MODEL_SIZE = "small"  # Optimal for 8GB GPU
 MAX_AUDIO_BUFFER_SIZE = 10  # seconds of audio
 TRANSCRIPTION_TIMEOUT = 30  # seconds
 
-# Performance Tuning
-MIN_SPEECH_DURATION = 0.5   # seconds
-MAX_SILENCE_DURATION = 2.0  # seconds before finalizing transcription
+# Natural Break Detection
+MIN_SPEECH_DURATION = 0.5   # seconds - minimum speech to consider valid
+SHORT_PAUSE_THRESHOLD = 0.3  # seconds - normal speech rhythm pause
+MEDIUM_PAUSE_THRESHOLD = 0.8 # seconds - likely sentence boundary
+LONG_PAUSE_THRESHOLD = 2.0   # seconds - definite end of speech segment
+MAX_SEGMENT_DURATION = 30.0  # seconds - force transcription of very long segments
+
+# Adaptive Behavior
+SILENCE_ADAPTATION_FACTOR = 0.1  # How quickly to adapt to speaker patterns
+NOISE_COMPENSATION_THRESHOLD = 0.02  # Adjust VAD sensitivity based on background noise
 ```
