@@ -4,12 +4,13 @@ import pyaudio
 from typing import Optional, List, Dict, Any
 
 from .exceptions import AudioCaptureError, MicrophoneNotFoundError
+from .config import DEFAULT_SAMPLE_RATE, DEFAULT_CHUNK_SIZE
 
 
 class AudioCapture:
     """Manages microphone input and audio streaming."""
 
-    def __init__(self, sample_rate: int = 16000, chunk_size: int = 1024) -> None:
+    def __init__(self, sample_rate: int = None, chunk_size: int = None) -> None:
         """
         Initialize audio capture with specified parameters.
 
@@ -17,13 +18,13 @@ class AudioCapture:
             sample_rate: Audio sample rate in Hz
             chunk_size: Number of samples per chunk
         """
-        if sample_rate <= 0:
+        self.sample_rate = sample_rate or DEFAULT_SAMPLE_RATE
+        self.chunk_size = chunk_size or DEFAULT_CHUNK_SIZE
+        
+        if self.sample_rate <= 0:
             raise ValueError("Sample rate must be positive")
-        if chunk_size <= 0:
+        if self.chunk_size <= 0:
             raise ValueError("Chunk size must be positive")
-            
-        self.sample_rate = sample_rate
-        self.chunk_size = chunk_size
         self._capturing = False
         self._pyaudio = None
         self._stream = None

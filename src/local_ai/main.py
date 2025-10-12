@@ -1,10 +1,15 @@
 """Command-line interface for speech-to-text functionality."""
 
+import argparse
 import asyncio
+import logging
 import signal
+import sys
 from typing import Optional
 
 from .speech_to_text.service import SpeechToTextService
+from .speech_to_text.transcriber import WhisperTranscriber
+from .speech_to_text.optimization_cache import get_optimization_cache
 
 
 class SpeechToTextCLI:
@@ -92,9 +97,7 @@ class SpeechToTextCLI:
             while self._running:
                 await asyncio.sleep(0.1)
                 
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
-        except asyncio.CancelledError:
+        except (KeyboardInterrupt, asyncio.CancelledError):
             print("\n👋 Goodbye!")
         except Exception as e:
             print(f"❌ Unexpected error: {e}")
@@ -113,6 +116,146 @@ async def main() -> None:
         pass  # Graceful shutdown already handled in cli.run()
 
 
+def create_argument_parser() -> argparse.ArgumentParser:
+    """
+    Create and configure the argument parser for the CLI.
+    
+    Returns:
+        Configured ArgumentParser instance
+    """
+    parser = argparse.ArgumentParser(
+        description="Speech-to-Text CLI - Convert real-time speech to text using local AI models",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m local_ai.main                              # Start with default settings
+  python -m local_ai.main --verbose                    # Enable verbose logging
+  python -m local_ai.main --reset-model-cache          # Clear model cache and exit
+  python -m local_ai.main --reset-optimization-cache   # Clear optimization cache and exit
+  python -m local_ai.main -v --reset-model-cache       # Verbose mode with model cache reset
+
+Controls:
+  Ctrl+C    - Stop and exit gracefully
+  
+The CLI will start listening to your microphone and display transcriptions in real-time.
+Make sure your microphone is connected and permissions are granted.
+        """
+    )
+    
+    parser.add_argument(
+        '--reset-model-cache',
+        action='store_true',
+        help='Clear HuggingFace model cache and re-download models on next use'
+    )
+    
+    parser.add_argument(
+        '--reset-optimization-cache',
+        action='store_true',
+        help='Clear system optimization cache (capabilities, configs, performance)'
+    )
+    
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose logging and debug information'
+    )
+    
+    return parser
+
+
+def reset_model_cache() -> bool:
+    """
+    Reset the model cache by clearing downloaded models.
+    
+    Returns:
+        True if cache was cleared successfully, False otherwise
+    """
+    try:
+        transcriber = WhisperTranscriber()
+        return transcriber.clear_model_cache()
+    except Exception as e:
+        logging.error(f"Error during model cache reset: {e}")
+        return False
+
+
+def reset_optimization_cache() -> bool:
+    """
+    Reset the optimization cache by clearing system capabilities, configs, and performance data.
+    
+    Returns:
+        True if cache was cleared successfully, False otherwise
+    """
+    try:
+        cache = get_optimization_cache()
+        cache.clear_cache("all")
+        return True
+    except Exception as e:
+        logging.error(f"Error during optimization cache reset: {e}")
+        return False
+
+
+def handle_arguments(args: argparse.Namespace) -> tuple[bool, bool]:
+    """
+    Handle parsed command-line arguments.
+    
+    Args:
+        args: Parsed arguments from argparse
+        
+    Returns:
+        Tuple of (success, should_continue):
+        - success: True if all operations succeeded, False if any failed
+        - should_continue: True if execution should continue to main(), False if it should stop
+    """
+    # Configure logging based on verbose flag
+    if args.verbose:
+        logging.basicConfig(
+            level='DEBUG',
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+    else:
+        logging.basicConfig(
+            level='INFO',
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
+    
+    # Handle cache resets if requested
+    cache_operations_performed = False
+    
+    if args.reset_model_cache:
+        try:
+            print("🔄 Clearing HuggingFace model cache...")
+            success = reset_model_cache()
+            if success:
+                print("✅ Model cache cleared successfully.")
+            else:
+                print("❌ Failed to clear model cache.")
+                return False, False
+            cache_operations_performed = True
+        except Exception as e:
+            print(f"❌ Error clearing model cache: {e}")
+            return False, False
+    
+    if args.reset_optimization_cache:
+        try:
+            print("🔄 Clearing system optimization cache...")
+            success = reset_optimization_cache()
+            if success:
+                print("✅ Optimization cache cleared successfully.")
+            else:
+                print("❌ Failed to clear optimization cache.")
+                return False, False
+            cache_operations_performed = True
+        except Exception as e:
+            print(f"❌ Error clearing optimization cache: {e}")
+            return False, False
+    
+    # If cache operations were performed successfully, don't continue to main execution
+    if cache_operations_performed:
+        return True, False
+    
+    return True, True
+
+
 def cli_entry() -> None:
     """Synchronous entry point for CLI script."""
     try:
@@ -121,5 +264,34 @@ def cli_entry() -> None:
         pass  # Final catch for any remaining KeyboardInterrupt
 
 
+def cli_entry_with_args() -> None:
+    """CLI entry point with argument parsing."""
+    parser = create_argument_parser()
+    
+    try:
+        args = parser.parse_args()
+        
+        # Handle arguments and check if we should continue
+        success, should_continue = handle_arguments(args)
+        
+        if not success:
+            sys.exit(1)
+        
+        if not should_continue:
+            sys.exit(0)
+        
+        # If we get here, proceed with normal execution
+        asyncio.run(main())
+        
+    except KeyboardInterrupt:
+        pass  # Graceful shutdown
+    except SystemExit:
+        # Re-raise SystemExit (from argparse help, etc.)
+        raise
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    cli_entry()
+    cli_entry_with_args()

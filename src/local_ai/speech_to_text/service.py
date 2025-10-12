@@ -10,6 +10,7 @@ from .vad import VoiceActivityDetector
 from .transcriber import WhisperTranscriber
 from .optimization import get_optimizer
 from .performance_monitor import get_performance_monitor, PerformanceContext
+from .config import ERROR_RECOVERY_SLEEP, DEFAULT_SAMPLE_RATE
 
 logger = logging.getLogger(__name__)
 
@@ -270,11 +271,12 @@ class SpeechToTextService:
         silence_counter = 0
         
         # Calculate optimized parameters
-        frame_duration_ms = 30  # VAD frame duration
+        frame_duration_ms = pipeline_config.get("vad_frame_duration", 30)  # VAD frame duration
         max_silence_chunks = int(pipeline_config["max_silence_duration"] * 1000 / frame_duration_ms)
         max_buffer_size = int(pipeline_config["max_audio_buffer_size"] * 1000 / frame_duration_ms)
         max_speech_buffer = int(pipeline_config["max_audio_buffer_size"] * 1000 / frame_duration_ms)
-        min_audio_size = int(pipeline_config["min_speech_duration"] * 16000 * 2)  # bytes for min duration
+        sample_rate = pipeline_config.get("sample_rate", DEFAULT_SAMPLE_RATE)
+        min_audio_size = int(pipeline_config["min_speech_duration"] * sample_rate * 2)  # bytes for min duration
         processing_interval = pipeline_config["processing_interval"]
         
         logger.info("Starting real-time audio processing pipeline")
@@ -334,7 +336,7 @@ class SpeechToTextService:
                 except Exception as e:
                     logger.error(f"Error in audio processing pipeline: {e}")
                     # Continue processing despite errors
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(ERROR_RECOVERY_SLEEP)
             
             # Process any remaining speech buffer
             if speech_buffer:
@@ -361,7 +363,8 @@ class SpeechToTextService:
             
             # Get optimized minimum audio size
             pipeline_config = self._optimizer.get_optimized_pipeline_config()
-            min_audio_size = int(pipeline_config["min_speech_duration"] * 16000 * 2)  # bytes for min duration
+            sample_rate = pipeline_config.get("sample_rate", DEFAULT_SAMPLE_RATE)
+            min_audio_size = int(pipeline_config["min_speech_duration"] * sample_rate * 2)  # bytes for min duration
             
             # Skip very short segments using optimized minimum duration
             if len(combined_audio) < min_audio_size:

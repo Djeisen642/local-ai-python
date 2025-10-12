@@ -2,7 +2,37 @@
 
 import logging
 from typing import Dict, Any, Optional
-from .config import VAD_AGGRESSIVENESS
+from .config import (
+    VAD_AGGRESSIVENESS,
+    DEFAULT_CHUNK_SIZE,
+    DEFAULT_SAMPLE_RATE,
+    DEFAULT_BUFFER_SIZE,
+    DEFAULT_MIN_SPEECH_DURATION,
+    DEFAULT_MAX_SILENCE_DURATION,
+    DEFAULT_MAX_AUDIO_BUFFER_SIZE,
+    DEFAULT_TRANSCRIPTION_TIMEOUT,
+    VAD_FRAME_DURATION,
+    LATENCY_BUFFER_SIZE,
+    LATENCY_MIN_SPEECH_DURATION,
+    LATENCY_MAX_SILENCE_DURATION,
+    LATENCY_CHUNK_SIZE,
+    LATENCY_VAD_FRAME_DURATION,
+    ACCURACY_BUFFER_SIZE,
+    ACCURACY_MIN_SPEECH_DURATION,
+    ACCURACY_MAX_SILENCE_DURATION,
+    RESOURCE_CHUNK_SIZE,
+    RESOURCE_PROCESSING_INTERVAL,
+    HIGH_MEMORY_BUFFER_SIZE,
+    HIGH_CPU_THRESHOLD,
+    HIGH_LATENCY_THRESHOLD,
+    HIGH_MEMORY_GB,
+    HIGH_GPU_MEMORY_GB,
+    ULTRA_GPU_MEMORY_GB,
+    PERFORMANCE_HISTORY_SIZE,
+    MINIMUM_PROCESSING_INTERVAL,
+    MINIMUM_CHUNK_SIZE,
+    BYTES_PER_KB
+)
 from .optimization_cache import get_optimization_cache
 
 logger = logging.getLogger(__name__)
@@ -48,14 +78,14 @@ class PerformanceOptimizer:
             import torch
             capabilities["has_gpu"] = torch.cuda.is_available()
             if capabilities["has_gpu"]:
-                capabilities["gpu_memory_gb"] = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+                capabilities["gpu_memory_gb"] = torch.cuda.get_device_properties(0).total_memory / (BYTES_PER_KB**3)
         except ImportError:
             pass
         
         # Try to detect memory
         try:
             import psutil
-            capabilities["memory_gb"] = psutil.virtual_memory().total / (1024**3)
+            capabilities["memory_gb"] = psutil.virtual_memory().total / (BYTES_PER_KB**3)
         except ImportError:
             pass
         
@@ -71,22 +101,22 @@ class PerformanceOptimizer:
         """Generate optimized configuration based on system capabilities."""
         config = {
             # Audio processing optimizations
-            "chunk_size": 1024,  # Default
-            "sample_rate": 16000,  # Optimal for Whisper
-            "buffer_size": 160,  # ~5 seconds at 30ms chunks
+            "chunk_size": DEFAULT_CHUNK_SIZE,
+            "sample_rate": DEFAULT_SAMPLE_RATE,
+            "buffer_size": DEFAULT_BUFFER_SIZE,
             
             # VAD optimizations
             "vad_aggressiveness": VAD_AGGRESSIVENESS,
-            "vad_frame_duration": 30,  # ms
-            "min_speech_duration": 0.5,  # seconds
-            "max_silence_duration": 2.0,  # seconds
+            "vad_frame_duration": VAD_FRAME_DURATION,
+            "min_speech_duration": DEFAULT_MIN_SPEECH_DURATION,
+            "max_silence_duration": DEFAULT_MAX_SILENCE_DURATION,
             
             # Transcription optimizations
             "whisper_model_size": "small",  # Default
             "compute_type": "int8",  # CPU optimization
             "device": "cpu",  # Default to CPU for stability
-            "max_audio_buffer_size": 10,  # seconds
-            "transcription_timeout": 30,  # seconds
+            "max_audio_buffer_size": DEFAULT_MAX_AUDIO_BUFFER_SIZE,
+            "transcription_timeout": DEFAULT_TRANSCRIPTION_TIMEOUT,
             
             # Pipeline optimizations
             "processing_interval": 0.01,  # seconds between processing cycles
@@ -95,11 +125,11 @@ class PerformanceOptimizer:
         
         # Optimize based on system capabilities
         if self.system_info["cpu_count"] >= 4:
-            config["chunk_size"] = 512  # Smaller chunks for better responsiveness
+            config["chunk_size"] = LATENCY_CHUNK_SIZE  # Smaller chunks for better responsiveness
             config["processing_interval"] = 0.005  # Faster processing
         
-        if self.system_info["memory_gb"] >= 8:
-            config["buffer_size"] = 320  # ~10 seconds buffer
+        if self.system_info["memory_gb"] >= HIGH_MEMORY_GB:
+            config["buffer_size"] = HIGH_MEMORY_BUFFER_SIZE  # ~10 seconds buffer
             config["max_audio_buffer_size"] = 15
         
         if self.system_info["has_gpu"] and self.system_info.get("gpu_memory_gb", 0) >= 4:
@@ -155,12 +185,12 @@ class PerformanceOptimizer:
         latency_config = self.optimized_config.copy()
         
         # Reduce buffer sizes for faster response
-        latency_config["chunk_size"] = 512
-        latency_config["buffer_size"] = 80  # ~2.5 seconds
-        latency_config["min_speech_duration"] = 0.3  # Shorter minimum
-        latency_config["max_silence_duration"] = 1.0  # Faster cutoff
+        latency_config["chunk_size"] = LATENCY_CHUNK_SIZE
+        latency_config["buffer_size"] = LATENCY_BUFFER_SIZE
+        latency_config["min_speech_duration"] = LATENCY_MIN_SPEECH_DURATION
+        latency_config["max_silence_duration"] = LATENCY_MAX_SILENCE_DURATION
         latency_config["processing_interval"] = 0.005  # More frequent processing
-        latency_config["vad_frame_duration"] = 20  # Shorter frames for faster detection
+        latency_config["vad_frame_duration"] = LATENCY_VAD_FRAME_DURATION
         
         logger.info("Applied latency optimizations")
         return latency_config
@@ -170,15 +200,15 @@ class PerformanceOptimizer:
         accuracy_config = self.optimized_config.copy()
         
         # Increase buffer sizes for better context
-        accuracy_config["buffer_size"] = 480  # ~15 seconds
-        accuracy_config["min_speech_duration"] = 0.8  # Longer minimum for better quality
-        accuracy_config["max_silence_duration"] = 3.0  # Allow longer pauses
+        accuracy_config["buffer_size"] = ACCURACY_BUFFER_SIZE
+        accuracy_config["min_speech_duration"] = ACCURACY_MIN_SPEECH_DURATION
+        accuracy_config["max_silence_duration"] = ACCURACY_MAX_SILENCE_DURATION
         accuracy_config["vad_aggressiveness"] = max(1, VAD_AGGRESSIVENESS - 1)  # Less aggressive
         
         # Use better model if system supports it
-        if self.system_info.get("gpu_memory_gb", 0) >= 6:
+        if self.system_info.get("gpu_memory_gb", 0) >= HIGH_GPU_MEMORY_GB:
             accuracy_config["whisper_model_size"] = "medium"
-        if self.system_info.get("gpu_memory_gb", 0) >= 10:
+        if self.system_info.get("gpu_memory_gb", 0) >= ULTRA_GPU_MEMORY_GB:
             accuracy_config["whisper_model_size"] = "large"
         
         logger.info("Applied accuracy optimizations")
@@ -189,9 +219,9 @@ class PerformanceOptimizer:
         resource_config = self.optimized_config.copy()
         
         # Minimize resource usage
-        resource_config["chunk_size"] = 1024  # Larger chunks, less frequent processing
-        resource_config["buffer_size"] = 160  # Smaller buffer
-        resource_config["processing_interval"] = 0.02  # Less frequent processing
+        resource_config["chunk_size"] = RESOURCE_CHUNK_SIZE  # Larger chunks, less frequent processing
+        resource_config["buffer_size"] = DEFAULT_BUFFER_SIZE  # Smaller buffer
+        resource_config["processing_interval"] = RESOURCE_PROCESSING_INTERVAL  # Less frequent processing
         resource_config["whisper_model_size"] = "tiny"  # Smallest model
         resource_config["device"] = "cpu"  # Force CPU to save GPU memory
         resource_config["compute_type"] = "int8"  # Most efficient compute type
@@ -220,8 +250,8 @@ class AdaptiveOptimizer:
             "timestamp": __import__("time").time()
         })
         
-        # Keep only recent history (last 10 measurements)
-        if len(self.performance_history) > 10:
+        # Keep only recent history (last N measurements)
+        if len(self.performance_history) > PERFORMANCE_HISTORY_SIZE:
             self.performance_history.pop(0)
     
     def should_adapt(self) -> bool:
@@ -237,7 +267,7 @@ class AdaptiveOptimizer:
         avg_cpu = sum(recent_cpu) / len(recent_cpu)
         
         # Adapt if latency is too high or CPU usage is too high
-        return avg_latency > 5.0 or avg_cpu > 80.0
+        return avg_latency > HIGH_LATENCY_THRESHOLD or avg_cpu > HIGH_CPU_THRESHOLD
     
     def adapt_configuration(self) -> Dict[str, Any]:
         """Adapt configuration based on performance history."""
@@ -256,14 +286,14 @@ class AdaptiveOptimizer:
         if avg_latency > 5.0:
             # High latency - optimize for speed
             logger.info("High latency detected, optimizing for speed")
-            self.current_config["chunk_size"] = max(256, self.current_config["chunk_size"] // 2)
-            self.current_config["processing_interval"] = max(0.001, self.current_config["processing_interval"] / 2)
+            self.current_config["chunk_size"] = max(MINIMUM_CHUNK_SIZE, self.current_config["chunk_size"] // 2)
+            self.current_config["processing_interval"] = max(MINIMUM_PROCESSING_INTERVAL, self.current_config["processing_interval"] / 2)
             self.current_config["max_silence_duration"] = max(0.5, self.current_config["max_silence_duration"] - 0.5)
         
-        if avg_cpu > 80.0:
+        if avg_cpu > HIGH_CPU_THRESHOLD:
             # High CPU usage - reduce processing load
             logger.info("High CPU usage detected, reducing processing load")
-            self.current_config["chunk_size"] = min(2048, self.current_config["chunk_size"] * 2)
+            self.current_config["chunk_size"] = min(RESOURCE_CHUNK_SIZE, self.current_config["chunk_size"] * 2)
             self.current_config["processing_interval"] = min(0.05, self.current_config["processing_interval"] * 2)
             
             # Switch to smaller model if using larger one

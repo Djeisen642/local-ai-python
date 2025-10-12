@@ -10,14 +10,23 @@ from .config import (
     LONG_PAUSE_THRESHOLD,
     MAX_SEGMENT_DURATION,
     SILENCE_ADAPTATION_FACTOR,
-    NOISE_COMPENSATION_THRESHOLD
+    NOISE_COMPENSATION_THRESHOLD,
+    DEFAULT_SAMPLE_RATE,
+    VAD_FRAME_DURATION,
+    VAD_SUPPORTED_SAMPLE_RATES,
+    VAD_SUPPORTED_FRAME_DURATIONS,
+    PAUSE_HISTORY_SIZE,
+    ADAPTIVE_PAUSE_MIN_SHORT,
+    ADAPTIVE_PAUSE_MAX_SHORT,
+    ADAPTIVE_PAUSE_MIN_MEDIUM,
+    ADAPTIVE_PAUSE_MAX_MEDIUM
 )
 
 
 class VoiceActivityDetector:
     """Detects when speech is present in audio stream."""
 
-    def __init__(self, sample_rate: int = 16000, frame_duration: int = 30) -> None:
+    def __init__(self, sample_rate: int = None, frame_duration: int = None) -> None:
         """
         Initialize voice activity detector.
 
@@ -28,21 +37,21 @@ class VoiceActivityDetector:
         Raises:
             ValueError: If sample_rate or frame_duration is not supported by webrtcvad
         """
+        self.sample_rate = sample_rate or DEFAULT_SAMPLE_RATE
+        self.frame_duration = frame_duration or VAD_FRAME_DURATION
+        
         # Validate sample rate (webrtcvad supports 8000, 16000, 32000, 48000 Hz)
-        if sample_rate not in [8000, 16000, 32000, 48000]:
-            raise ValueError(f"Unsupported sample rate: {sample_rate}. "
-                           "WebRTC VAD supports 8000, 16000, 32000, 48000 Hz")
+        if self.sample_rate not in VAD_SUPPORTED_SAMPLE_RATES:
+            raise ValueError(f"Unsupported sample rate: {self.sample_rate}. "
+                           f"WebRTC VAD supports {VAD_SUPPORTED_SAMPLE_RATES} Hz")
         
         # Validate frame duration (webrtcvad supports 10, 20, 30 ms)
-        if frame_duration not in [10, 20, 30]:
-            raise ValueError(f"Unsupported frame duration: {frame_duration}. "
-                           "WebRTC VAD supports 10, 20, 30 ms")
-        
-        self.sample_rate = sample_rate
-        self.frame_duration = frame_duration
+        if self.frame_duration not in VAD_SUPPORTED_FRAME_DURATIONS:
+            raise ValueError(f"Unsupported frame duration: {self.frame_duration}. "
+                           f"WebRTC VAD supports {VAD_SUPPORTED_FRAME_DURATIONS} ms")
         
         # Calculate frame size in samples
-        self.frame_size = int(sample_rate * frame_duration / 1000)
+        self.frame_size = int(self.sample_rate * self.frame_duration / 1000)
         
         # Initialize WebRTC VAD
         self.vad = webrtcvad.Vad()
@@ -263,8 +272,8 @@ class VoiceActivityDetector:
         """
         self._recent_pause_durations.append(duration)
         
-        # Keep only recent pause durations (last 20 pauses)
-        if len(self._recent_pause_durations) > 20:
+        # Keep only recent pause durations (last N pauses)
+        if len(self._recent_pause_durations) > PAUSE_HISTORY_SIZE:
             self._recent_pause_durations.pop(0)
 
     def _adapt_thresholds(self) -> None:
@@ -281,14 +290,14 @@ class VoiceActivityDetector:
         adaptation_rate = SILENCE_ADAPTATION_FACTOR
         
         # Adjust medium pause threshold based on speaker's natural rhythm
-        target_medium = max(0.5, min(1.5, avg_pause * 1.2))  # Clamp between 0.5-1.5s
+        target_medium = max(ADAPTIVE_PAUSE_MIN_MEDIUM, min(ADAPTIVE_PAUSE_MAX_MEDIUM, avg_pause * 1.2))
         self._adaptive_medium_pause += (target_medium - self._adaptive_medium_pause) * adaptation_rate
         
         # Adjust long pause threshold proportionally
         self._adaptive_long_pause = max(self._adaptive_medium_pause + 0.5, LONG_PAUSE_THRESHOLD)
         
         # Keep short pause threshold relatively stable but slightly adaptive
-        target_short = max(0.2, min(0.5, avg_pause * 0.8))  # Clamp between 0.2-0.5s
+        target_short = max(ADAPTIVE_PAUSE_MIN_SHORT, min(ADAPTIVE_PAUSE_MAX_SHORT, avg_pause * 0.8))
         self._adaptive_short_pause += (target_short - self._adaptive_short_pause) * adaptation_rate * 0.5
 
     def get_adaptive_thresholds(self) -> dict[str, float]:

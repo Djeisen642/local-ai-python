@@ -13,6 +13,7 @@ from .optimization import (
     get_cache_info
 )
 from .optimization_cache import get_optimization_cache
+from .config import BYTES_PER_KB
 
 
 def format_size(size_bytes: int) -> str:
@@ -21,9 +22,9 @@ def format_size(size_bytes: int) -> str:
         return "0 B"
     
     for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1024.0:
+        if size_bytes < BYTES_PER_KB:
             return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024.0
+        size_bytes /= BYTES_PER_KB
     return f"{size_bytes:.1f} TB"
 
 

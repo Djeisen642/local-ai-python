@@ -71,3 +71,14 @@ This feature enables the local AI application to convert real-time streaming spe
 2. WHEN I speak in longer sentences THEN the system SHALL wait for natural sentence boundaries before transcribing
 3. WHEN I speak very long segments THEN the system SHALL provide transcription in reasonable chunks to avoid excessive delays
 4. WHEN I have different speaking patterns THEN the system SHALL adapt to my natural rhythm and pauses
+
+### Requirement 7
+
+**User Story:** As a user, I want essential command-line options to control the application, so that I can get help and troubleshoot different types of cache issues.
+
+#### Acceptance Criteria
+
+1. WHEN I run the application with --help THEN it SHALL show usage information and available options
+2. WHEN I need to clear corrupted Whisper models THEN I SHALL be able to use --reset-model-cache to re-download models
+3. WHEN I need to clear system optimization data THEN I SHALL be able to use --reset-optimization-cache to clear capabilities and configs
+4. WHEN I want detailed output for debugging THEN I SHALL be able to use --verbose to see what's happening

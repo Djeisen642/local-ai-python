@@ -10,6 +10,13 @@ from typing import Any, Optional
 
 import numpy as np
 
+from .config import (
+    DEFAULT_SAMPLE_RATE,
+    MAX_AUDIO_FILE_SIZE,
+    SILENCE_DURATION,
+    BYTES_PER_KB
+)
+
 # Import faster_whisper at module level for proper mocking in tests
 try:
     import faster_whisper  # type: ignore[import-untyped]
@@ -86,7 +93,7 @@ class WhisperTranscriber:
             logger.error(f"Failed to load Whisper model: {e}")
             return False
 
-    def _convert_audio_format(self, audio_data: bytes, target_sample_rate: int = 16000) -> bytes:
+    def _convert_audio_format(self, audio_data: bytes, target_sample_rate: int = None) -> bytes:
         """
         Convert audio data to format compatible with Whisper.
         
@@ -97,6 +104,9 @@ class WhisperTranscriber:
         Returns:
             Converted audio data in WAV format
         """
+        if target_sample_rate is None:
+            target_sample_rate = DEFAULT_SAMPLE_RATE
+            
         if not audio_data or not isinstance(audio_data, bytes):
             return b""
             
@@ -184,9 +194,9 @@ class WhisperTranscriber:
         Returns:
             Minimal WAV file data
         """
-        # Create 0.1 seconds of silence at 16kHz
-        sample_rate = 16000
-        duration = 0.1
+        # Create silence at default sample rate
+        sample_rate = DEFAULT_SAMPLE_RATE
+        duration = SILENCE_DURATION
         samples = np.zeros(int(sample_rate * duration), dtype=np.int16)
         
         buffer = io.BytesIO()
@@ -270,8 +280,8 @@ class WhisperTranscriber:
         if len(audio_data) == 0:
             return ""
 
-        # Handle excessively large audio data (> 100MB)
-        if len(audio_data) > 100 * 1024 * 1024:
+        # Handle excessively large audio data
+        if len(audio_data) > MAX_AUDIO_FILE_SIZE:
             logger.warning(f"Audio data too large ({len(audio_data)} bytes), skipping transcription")
             return ""
 
@@ -284,7 +294,7 @@ class WhisperTranscriber:
                 return ""
 
             # Convert audio to Whisper-compatible format
-            converted_audio = self._convert_audio_format(audio_data, target_sample_rate=16000)
+            converted_audio = self._convert_audio_format(audio_data, target_sample_rate=DEFAULT_SAMPLE_RATE)
             
             if not converted_audio:
                 logger.warning("Audio format conversion failed")
@@ -351,7 +361,7 @@ class WhisperTranscriber:
             return self.create_transcription_result("", processing_start_time, 0.0)
 
         # Handle excessively large audio data
-        if len(audio_data) > 100 * 1024 * 1024:
+        if len(audio_data) > MAX_AUDIO_FILE_SIZE:
             logger.warning(f"Audio data too large ({len(audio_data)} bytes), skipping transcription")
             return self.create_transcription_result("", processing_start_time, 0.0)
 
@@ -362,7 +372,7 @@ class WhisperTranscriber:
                 return self.create_transcription_result("", processing_start_time, 0.0)
 
             # Convert audio to Whisper-compatible format
-            converted_audio = self._convert_audio_format(audio_data, target_sample_rate=16000)
+            converted_audio = self._convert_audio_format(audio_data, target_sample_rate=DEFAULT_SAMPLE_RATE)
             
             if not converted_audio:
                 logger.warning("Audio format conversion failed")
@@ -463,3 +473,61 @@ class WhisperTranscriber:
         except Exception as e:
             logger.error(f"Failed to get model info: {e}")
             return {}
+
+    def clear_model_cache(self) -> bool:
+        """
+        Clear the downloaded model cache and reset the transcriber.
+        
+        This removes cached model files from the HuggingFace cache directory
+        and resets the transcriber state so models will be re-downloaded on next use.
+        
+        Returns:
+            True if cache was cleared successfully, False otherwise
+        """
+        try:
+            import shutil
+            import os
+            from pathlib import Path
+            
+            # Reset internal state first
+            self._model = None
+            self._model_loaded = False
+            
+            # Get HuggingFace cache directory
+            cache_dir = Path.home() / ".cache" / "huggingface"
+            
+            if not cache_dir.exists():
+                logger.info("No HuggingFace cache directory found")
+                return True
+            
+            # Look for Whisper model directories
+            models_cleared = 0
+            
+            # Check for faster-whisper cache directories
+            for item in cache_dir.iterdir():
+                if item.is_dir() and ("whisper" in item.name.lower() or "openai" in item.name.lower()):
+                    try:
+                        logger.info(f"Removing cached model directory: {item}")
+                        shutil.rmtree(item)
+                        models_cleared += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to remove cache directory {item}: {e}")
+            
+            # Also check hub cache for transformers-style models
+            hub_cache = cache_dir / "hub"
+            if hub_cache.exists():
+                for item in hub_cache.iterdir():
+                    if item.is_dir() and "whisper" in item.name.lower():
+                        try:
+                            logger.info(f"Removing cached hub model: {item}")
+                            shutil.rmtree(item)
+                            models_cleared += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to remove hub cache {item}: {e}")
+            
+            logger.info(f"Cleared {models_cleared} cached model directories")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to clear model cache: {e}")
+            return False

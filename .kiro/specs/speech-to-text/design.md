@@ -82,21 +82,24 @@ class VoiceActivityDetector:
 
 ### 3. WhisperTranscriber Class
 
-**Purpose**: Uses faster-whisper library for local speech-to-text conversion
+**Purpose**: Uses faster-whisper library with optimization and caching for local speech-to-text conversion
 
 ```python
 class WhisperTranscriber:
     def __init__(self, model_size: str = "small")
-    async def transcribe_audio(self, audio_data: bytes) -> str
+    async def transcribe_audio(self, audio_data: bytes) -> TranscriptionResult
     def is_model_available(self) -> bool
     def get_model_info(self) -> Dict[str, Any]
+    def clear_model_cache(self) -> bool  # Clears HuggingFace cache
 ```
 
 **Key Features:**
 
-- Async transcription to prevent blocking
-- Automatic GPU/CPU device selection
-- Efficient faster-whisper implementation
+- Async transcription with optimized parameters (beam_size, temperature, etc.)
+- Automatic GPU/CPU device selection with memory optimization
+- Model caching with automatic cleanup and size management
+- Performance optimization through compute_type and compression detection
+- Cache management with reset capability
 - Audio format conversion for Ollama compatibility
 
 ### 4. SpeechToTextService Class
@@ -226,7 +229,9 @@ The system implements intelligent speech segmentation to provide natural, conver
 - **Overlap Handling**: Ensure smooth transitions between segments
 - **Incomplete Segment Recovery**: Handle interruptions and partial speech gracefully
 
-## Model Selection Strategy
+## Model Selection and Optimization Strategy
+
+### Model Selection
 
 For an 8GB GPU setup, the optimal choice is **Whisper Small**:
 
@@ -235,7 +240,36 @@ For an 8GB GPU setup, the optimal choice is **Whisper Small**:
 - **Whisper Medium (769MB)**: Higher accuracy, still fits in 8GB but slower
 - **Whisper Large (1550MB)**: Best accuracy, may be tight on 8GB depending on other processes
 
-The design uses Whisper Small as default but allows easy model switching for future GPU upgrades.
+### Performance Optimization
+
+The system implements several optimization strategies:
+
+**Memory Optimization:**
+
+- Uses `float16` compute type to reduce GPU memory usage by ~50%
+- Leverages faster-whisper's automatic model caching
+
+**Processing Optimization:**
+
+- Optimized beam search parameters (beam_size=5, best_of=5)
+- Deterministic output with temperature=0.0 for consistent results
+- Compression ratio detection to identify and filter repetitive transcriptions
+- Log probability thresholds to filter low-confidence results
+
+**Caching Strategy:**
+
+_Model Cache (HuggingFace):_
+
+- Whisper models automatically cached in `~/.cache/huggingface/` directory
+- Managed by HuggingFace transformers library
+- Reset with `--reset-model-cache` for corrupted model files
+
+_Optimization Cache (System):_
+
+- System capabilities, optimized configurations, and performance history
+- Stored in `~/.cache/local_ai/speech_to_text/` directory
+- Includes system fingerprinting for cache validation
+- Reset with `--reset-optimization-cache` after system changes
 
 ## Configuration Constants
 
@@ -250,14 +284,23 @@ AUDIO_FORMAT = pyaudio.paInt16
 VAD_FRAME_DURATION = 30  # milliseconds
 VAD_AGGRESSIVENESS = 2   # 0-3, higher = more aggressive filtering
 
-# Transcription Configuration
+# Model and Cache Configuration
 WHISPER_MODEL_SIZE = "small"  # Optimal for 8GB GPU
-# Alternative models for future upgrades:
-# WHISPER_MODEL_SIZE = "medium"  # For better accuracy with more GPU memory
-# WHISPER_MODEL_SIZE = "large"   # For best accuracy with 16GB+ GPU
-# Device selection is automatic (GPU if available, CPU fallback)
+COMPUTE_TYPE = "float16"  # Optimization for GPU memory efficiency
+# Note: faster-whisper handles model caching automatically in ~/.cache/huggingface/
+
+# Performance Optimization
+BEAM_SIZE = 5  # Balance between accuracy and speed
+BEST_OF = 5    # Number of candidates to consider
+TEMPERATURE = 0.0  # Deterministic output (0.0) vs creative (1.0)
+COMPRESSION_RATIO_THRESHOLD = 2.4  # Detect repetitive transcriptions
+LOGPROB_THRESHOLD = -1.0  # Filter low-confidence results
+NO_SPEECH_THRESHOLD = 0.6  # Threshold for detecting silence
+
+# Buffer and Processing
 MAX_AUDIO_BUFFER_SIZE = 10  # seconds of audio
 TRANSCRIPTION_TIMEOUT = 30  # seconds
+PROCESSING_CHUNK_SIZE = 30  # seconds - optimal chunk size for Whisper
 
 # Natural Break Detection
 MIN_SPEECH_DURATION = 0.5   # seconds - minimum speech to consider valid
@@ -269,4 +312,39 @@ MAX_SEGMENT_DURATION = 30.0  # seconds - force transcription of very long segmen
 # Adaptive Behavior
 SILENCE_ADAPTATION_FACTOR = 0.1  # How quickly to adapt to speaker patterns
 NOISE_COMPENSATION_THRESHOLD = 0.02  # Adjust VAD sensitivity based on background noise
+```
+
+## Command-Line Interface
+
+The CLI provides a user-friendly interface with comprehensive argument support:
+
+### Core Arguments
+
+```bash
+python -m local_ai.speech_to_text [OPTIONS]
+```
+
+### Available Options
+
+**Essential Options:**
+
+- `--help, -h` - Show help message and exit
+- `--reset-model-cache` - Clear HuggingFace model cache and re-download models
+- `--reset-optimization-cache` - Clear system optimization cache (capabilities, configs, performance)
+- `--verbose, -v` - Enable verbose logging and debug information
+
+### Usage Examples
+
+```bash
+# Basic usage with defaults
+python -m local_ai.speech_to_text
+
+# Reset model cache (useful if Whisper model is corrupted)
+python -m local_ai.speech_to_text --reset-model-cache
+
+# Reset optimization cache (useful after system changes or for troubleshooting)
+python -m local_ai.speech_to_text --reset-optimization-cache
+
+# Verbose mode for debugging
+python -m local_ai.speech_to_text --verbose
 ```

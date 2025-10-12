@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from collections import deque
 
+from .config import PERFORMANCE_HISTORY_SIZE, VAD_SLOW_THRESHOLD
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,13 +24,15 @@ class PerformanceMetrics:
 class PerformanceMonitor:
     """Monitors and tracks performance metrics for the speech-to-text pipeline."""
     
-    def __init__(self, max_history: int = 100):
+    def __init__(self, max_history: int = None):
         """
         Initialize performance monitor.
         
         Args:
             max_history: Maximum number of metrics to keep in history
         """
+        if max_history is None:
+            max_history = PERFORMANCE_HISTORY_SIZE
         self.max_history = max_history
         self.metrics_history: deque = deque(maxlen=max_history)
         self.operation_counters: Dict[str, int] = {}
@@ -198,7 +202,7 @@ class PerformanceMonitor:
         
         # Check VAD performance
         vad_stats = self.get_operation_stats("vad", time_window=60.0)
-        if vad_stats["count"] > 0 and vad_stats["avg_duration"] > 0.1:
+        if vad_stats["count"] > 0 and vad_stats["avg_duration"] > VAD_SLOW_THRESHOLD:
             issues.append({
                 "type": "slow_vad",
                 "severity": "info",

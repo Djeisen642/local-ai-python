@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import hashlib
 
+from .config import OPTIMIZATION_CACHE_SIZE
+
 logger = logging.getLogger(__name__)
 
 
@@ -157,12 +159,12 @@ class OptimizationCache:
                 "timestamp": time.time()
             }
             
-            # Clean old entries (keep only last 10 per system)
+            # Clean old entries (keep only last N per system)
             system_entries = [(k, v) for k, v in cached_configs.items() if k.startswith(fingerprint)]
-            if len(system_entries) > 10:
-                # Sort by timestamp and keep newest 10
+            if len(system_entries) > OPTIMIZATION_CACHE_SIZE:
+                # Sort by timestamp and keep newest N
                 system_entries.sort(key=lambda x: x[1]["timestamp"], reverse=True)
-                for key, _ in system_entries[10:]:
+                for key, _ in system_entries[OPTIMIZATION_CACHE_SIZE:]:
                     del cached_configs[key]
             
             with open(self.config_cache_file, 'w') as f:

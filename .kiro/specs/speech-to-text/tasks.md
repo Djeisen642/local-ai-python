@@ -125,6 +125,16 @@
   - Implement graceful shutdown handling (Ctrl+C)
   - _Requirements: 1.1, 3.1, 3.3_
 
+- [x] 6.3 Add essential CLI argument parsing and help functionality
+
+  - Write tests for command-line argument parsing using argparse
+  - Implement help functionality with --help/-h flag
+  - Add --reset-model-cache argument to clear HuggingFace model cache
+  - Add --reset-optimization-cache argument to clear system optimization cache
+  - Add --verbose/-v flag for detailed logging output
+  - Test argument validation and error handling for both cache types
+  - _Requirements: 1.1, 2.3, 7.1, 7.2, 7.3, 7.4_
+
 - [x] 7. Integration testing and final validation
 - [x] 7.1 Write end-to-end integration tests
 
