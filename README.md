@@ -27,8 +27,19 @@ Real-time speech recognition using OpenAI's Whisper model running locally. Conve
 ### Prerequisites
 
 - Python 3.13 or higher
+- [uv](https://docs.astral.sh/uv/) package manager
 - Microphone access
 - (Optional) NVIDIA GPU with CUDA for faster processing
+
+**Install uv first:**
+
+```bash
+# Linux/macOS
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or with pip
+pip install uv
+```
 
 ### Installation
 
@@ -46,10 +57,10 @@ Real-time speech recognition using OpenAI's Whisper model running locally. Conve
    sudo apt install python3-dev portaudio19-dev
    ```
 
-3. **Install Python dependencies:**
+3. **Install the package:**
 
    ```bash
-   pip install -e .
+   uv pip install -e .
    ```
 
 4. **For GPU acceleration (optional):**
@@ -63,6 +74,10 @@ Real-time speech recognition using OpenAI's Whisper model running locally. Conve
 Start real-time speech-to-text:
 
 ```bash
+# After installation, you can use either:
+local-ai
+
+# Or the module approach:
 python -m local_ai.main
 ```
 

@@ -113,8 +113,13 @@ async def main() -> None:
         pass  # Graceful shutdown already handled in cli.run()
 
 
-if __name__ == "__main__":
+def cli_entry() -> None:
+    """Synchronous entry point for CLI script."""
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         pass  # Final catch for any remaining KeyboardInterrupt
+
+
+if __name__ == "__main__":
+    cli_entry()
