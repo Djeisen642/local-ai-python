@@ -94,6 +94,8 @@ class SpeechToTextCLI:
                 
         except KeyboardInterrupt:
             print("\n👋 Goodbye!")
+        except asyncio.CancelledError:
+            print("\n👋 Goodbye!")
         except Exception as e:
             print(f"❌ Unexpected error: {e}")
         finally:
@@ -105,8 +107,14 @@ class SpeechToTextCLI:
 async def main() -> None:
     """Main entry point for the CLI application."""
     cli = SpeechToTextCLI()
-    await cli.run()
+    try:
+        await cli.run()
+    except KeyboardInterrupt:
+        pass  # Graceful shutdown already handled in cli.run()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass  # Final catch for any remaining KeyboardInterrupt
