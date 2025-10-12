@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-local-ai = "local_ai.main:cli_entry"
+local-ai = "local_ai.main:cli_entry_with_args"
 
 [project.urls]
 homepage = "https://github.com/Djeisen642/local-ai-python#readme"

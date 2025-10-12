@@ -1,8 +1,11 @@
 """Voice Activity Detection for speech-to-text."""
 
 import time
+import logging
 from typing import Optional
 import webrtcvad
+
+logger = logging.getLogger(__name__)
 from .config import (
     VAD_AGGRESSIVENESS, 
     SHORT_PAUSE_THRESHOLD, 
@@ -81,6 +84,17 @@ class VoiceActivityDetector:
         # Speaker pattern tracking
         self._recent_pause_durations: list[float] = []
         self._background_noise_level = 0.0
+        
+        # Debug tracking
+        self._speech_detections = 0
+        self._total_chunks_processed = 0
+        self._last_debug_log = time.time()
+        self._debug_log_interval = 10.0  # Log VAD stats every 10 seconds
+        
+        logger.info(f"🔊 VAD initialized: sample_rate={self.sample_rate}Hz, "
+                   f"frame_duration={self.frame_duration}ms, "
+                   f"aggressiveness={aggressiveness}, "
+                   f"frame_size={self.frame_size} samples")
 
     def is_speech(self, audio_chunk: bytes) -> bool:
         """
@@ -92,8 +106,11 @@ class VoiceActivityDetector:
         Returns:
             True if speech detected, False otherwise
         """
+        self._total_chunks_processed += 1
+        
         # Handle empty or invalid audio
         if not audio_chunk:
+            logger.debug("VAD received empty audio chunk")
             return False
         
         # Check if audio chunk has the correct size for VAD
@@ -101,15 +118,32 @@ class VoiceActivityDetector:
         if len(audio_chunk) != expected_bytes:
             # If audio is too short, pad with zeros or return False
             if len(audio_chunk) < expected_bytes:
+                logger.debug(f"VAD audio chunk too short: {len(audio_chunk)} < {expected_bytes} bytes")
                 return False
             # If audio is too long, truncate to frame size
+            logger.debug(f"VAD audio chunk too long: {len(audio_chunk)} > {expected_bytes} bytes, truncating")
             audio_chunk = audio_chunk[:expected_bytes]
         
         try:
             # Use WebRTC VAD to detect speech
-            return self.vad.is_speech(audio_chunk, self.sample_rate)
-        except Exception:
-            # If VAD fails for any reason, return False
+            is_speech_detected = self.vad.is_speech(audio_chunk, self.sample_rate)
+            
+            if is_speech_detected:
+                self._speech_detections += 1
+                logger.debug(f"🗣️ Speech detected! (detection #{self._speech_detections})")
+            
+            # Log periodic VAD statistics
+            current_time = time.time()
+            if current_time - self._last_debug_log >= self._debug_log_interval:
+                speech_ratio = (self._speech_detections / self._total_chunks_processed * 100) if self._total_chunks_processed > 0 else 0
+                logger.info(f"🔊 VAD Stats: {self._speech_detections} speech detections in "
+                           f"{self._total_chunks_processed} chunks ({speech_ratio:.1f}% speech)")
+                self._last_debug_log = current_time
+            
+            return is_speech_detected
+            
+        except Exception as e:
+            logger.error(f"❌ VAD error processing audio chunk: {e}")
             return False
 
     def get_speech_segments(self, audio_buffer: list[bytes]) -> list[bytes]:

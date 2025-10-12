@@ -58,19 +58,11 @@ class WhisperTranscriber:
             
             WhisperModel = faster_whisper.WhisperModel
 
-            # Use optimized device and compute type if available
-            try:
-                from .optimization import get_optimizer
-                optimizer = get_optimizer()
-                transcriber_config = optimizer.get_optimized_transcriber_config()
-                device = transcriber_config.get("device", "cpu")
-                compute_type = transcriber_config.get("compute_type", "int8")
-            except ImportError:
-                # Fallback to conservative settings
-                device = "cpu"
-                compute_type = "int8"
+            # Force CPU-only mode for stability (avoid CUDA/cuDNN issues)
+            device = "cpu"
+            compute_type = "int8"
 
-            logger.info(f"Loading Whisper model '{self.model_size}' with device='{device}', compute_type='{compute_type}'")
+            logger.info(f"Loading Whisper model '{self.model_size}' with device='{device}', compute_type='{compute_type}' (CPU-only mode)")
             
             self._model = WhisperModel(
                 self.model_size,
@@ -274,10 +266,12 @@ class WhisperTranscriber:
         """
         # Handle invalid input
         if not audio_data or not isinstance(audio_data, bytes):
+            logger.debug("Transcriber received invalid audio data")
             return ""
 
         # Handle empty audio
         if len(audio_data) == 0:
+            logger.debug("Transcriber received empty audio data")
             return ""
 
         # Handle excessively large audio data
@@ -285,6 +279,7 @@ class WhisperTranscriber:
             logger.warning(f"Audio data too large ({len(audio_data)} bytes), skipping transcription")
             return ""
 
+        logger.debug(f"🎤 Transcriber processing {len(audio_data)} bytes of audio data")
         processing_start_time = time.time()
 
         try:
@@ -294,11 +289,14 @@ class WhisperTranscriber:
                 return ""
 
             # Convert audio to Whisper-compatible format
+            logger.debug(f"🔄 Converting audio format for Whisper (target: {DEFAULT_SAMPLE_RATE}Hz)")
             converted_audio = self._convert_audio_format(audio_data, target_sample_rate=DEFAULT_SAMPLE_RATE)
             
             if not converted_audio:
-                logger.warning("Audio format conversion failed")
+                logger.warning("❌ Audio format conversion failed")
                 return ""
+            
+            logger.debug(f"✅ Audio converted successfully: {len(converted_audio)} bytes")
 
             # Create a temporary file for faster-whisper to process
             import tempfile
@@ -309,6 +307,8 @@ class WhisperTranscriber:
                 temp_file.flush()
                 
                 try:
+                    logger.debug(f"🔄 Starting Whisper transcription of temp file: {temp_file.name}")
+                    
                     # Run transcription in thread pool to avoid blocking
                     loop = asyncio.get_event_loop()
                     segments, _ = await loop.run_in_executor(
@@ -319,11 +319,26 @@ class WhisperTranscriber:
                     
                     # Collect all text segments
                     transcribed_text = ""
+                    segment_count = 0
                     for segment in segments:
                         transcribed_text += segment.text
+                        segment_count += 1
+                    
+                    logger.debug(f"📝 Whisper returned {segment_count} segments, "
+                               f"raw text length: {len(transcribed_text)}")
 
                     # Post-process the transcribed text
                     processed_text = self._post_process_text(transcribed_text)
+                    
+                    processing_time = time.time() - processing_start_time
+                    
+                    if processed_text.strip():
+                        logger.info(f"✅ Transcription successful: '{processed_text}' "
+                                   f"({len(audio_data)} bytes -> {len(processed_text)} chars, "
+                                   f"{processing_time:.2f}s)")
+                    else:
+                        logger.debug(f"🔇 Transcription returned empty result after processing "
+                                   f"({processing_time:.2f}s)")
                     
                     return processed_text
                     

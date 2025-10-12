@@ -73,14 +73,9 @@ class PerformanceOptimizer:
             "memory_gb": 4  # Default conservative estimate
         }
         
-        # Try to detect GPU availability
-        try:
-            import torch
-            capabilities["has_gpu"] = torch.cuda.is_available()
-            if capabilities["has_gpu"]:
-                capabilities["gpu_memory_gb"] = torch.cuda.get_device_properties(0).total_memory / (BYTES_PER_KB**3)
-        except ImportError:
-            pass
+        # Force CPU-only mode to avoid CUDA/cuDNN compatibility issues
+        logger.info("GPU detection disabled - using CPU-only mode for stability")
+        capabilities["has_gpu"] = False
         
         # Try to detect memory
         try:
@@ -96,6 +91,56 @@ class PerformanceOptimizer:
             self.cache.cache_system_capabilities(capabilities)
         
         return capabilities
+    
+    def _validate_cuda_availability(self) -> bool:
+        """
+        Validate that CUDA is actually working, not just available.
+        
+        Returns:
+            True if CUDA is available and working, False otherwise
+        """
+        try:
+            import torch
+            
+            # First check if torch thinks CUDA is available
+            if not torch.cuda.is_available():
+                logger.info("CUDA not available according to PyTorch")
+                return False
+            
+            # Try to actually use CUDA to validate it works
+            logger.info("Validating CUDA functionality...")
+            
+            # Test basic CUDA operations
+            device = torch.device("cuda:0")
+            test_tensor = torch.tensor([1.0, 2.0, 3.0], device=device)
+            result = test_tensor * 2
+            result_cpu = result.cpu()
+            
+            # Verify the operation worked
+            expected = torch.tensor([2.0, 4.0, 6.0])
+            if not torch.allclose(result_cpu, expected):
+                logger.error("CUDA validation failed - tensor operations incorrect")
+                return False
+            
+            logger.info("CUDA validation successful")
+            return True
+            
+        except ImportError:
+            logger.info("PyTorch not available - CUDA disabled")
+            return False
+        except RuntimeError as e:
+            error_msg = str(e).lower()
+            if "cuda" in error_msg or "cudnn" in error_msg or "gpu" in error_msg:
+                logger.warning(f"CUDA validation failed with runtime error: {e}")
+                logger.info("Falling back to CPU-only mode due to CUDA issues")
+                return False
+            else:
+                # Re-raise if it's not a CUDA-related error
+                raise
+        except Exception as e:
+            logger.warning(f"CUDA validation failed with unexpected error: {e}")
+            logger.info("Falling back to CPU-only mode for safety")
+            return False
     
     def _generate_optimized_config(self) -> Dict[str, Any]:
         """Generate optimized configuration based on system capabilities."""
@@ -132,11 +177,16 @@ class PerformanceOptimizer:
             config["buffer_size"] = HIGH_MEMORY_BUFFER_SIZE  # ~10 seconds buffer
             config["max_audio_buffer_size"] = 15
         
-        if self.system_info["has_gpu"] and self.system_info.get("gpu_memory_gb", 0) >= 4:
-            config["device"] = "cuda"
-            config["compute_type"] = "float16"
-            if self.system_info.get("gpu_memory_gb", 0) >= 8:
-                config["whisper_model_size"] = "medium"  # Better accuracy with more GPU memory
+        # Force CPU-only mode to avoid CUDA/cuDNN compatibility issues
+        logger.info("Using CPU-only mode for Whisper transcription (CUDA disabled due to compatibility issues)")
+        config["device"] = "cpu"
+        config["compute_type"] = "int8"
+        
+        # Optimize CPU performance based on system capabilities
+        if self.system_info["cpu_count"] >= 8:
+            config["whisper_model_size"] = "small"  # Can handle slightly larger model with more CPU cores
+        elif self.system_info["cpu_count"] >= 4:
+            config["whisper_model_size"] = "tiny"   # Use smallest model for better performance on limited cores
         
         # Platform-specific optimizations
         if self.system_info["platform"] == "Linux":

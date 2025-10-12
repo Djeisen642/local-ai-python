@@ -318,7 +318,6 @@ dependencies = [
     { name = "faster-whisper" },
     { name = "psutil" },
     { name = "pyaudio" },
-    { name = "ruff" },
     { name = "torch" },
     { name = "webrtcvad" },
 ]
@@ -340,7 +339,6 @@ requires-dist = [
     { name = "faster-whisper", specifier = ">=1.0.0" },
     { name = "psutil", specifier = ">=7.1.0" },
     { name = "pyaudio", specifier = ">=0.2.11" },
-    { name = "ruff", specifier = ">=0.12.9" },
     { name = "torch", specifier = ">=2.8.0" },
     { name = "webrtcvad", specifier = ">=2.0.10" },
 ]

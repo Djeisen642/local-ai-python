@@ -79,6 +79,8 @@ class SpeechToTextService:
                 sample_rate=audio_config["sample_rate"],
                 chunk_size=audio_config["chunk_size"]
             )
+            logger.debug(f"Audio capture initialized with sample_rate={audio_config['sample_rate']}, "
+                        f"chunk_size={audio_config['chunk_size']}")
             
             # Initialize voice activity detector with optimized settings
             self._vad = VoiceActivityDetector(
@@ -128,7 +130,15 @@ class SpeechToTextService:
             
             # Start audio capture
             if self._audio_capture:
+                logger.info("🎤 Starting audio capture...")
                 self._audio_capture.start_capture()
+                
+                # Log audio capture debug stats if available
+                if hasattr(self._audio_capture, 'get_debug_stats'):
+                    debug_stats = self._audio_capture.get_debug_stats()
+                    logger.info(f"🎤 Audio capture status: {debug_stats}")
+                else:
+                    logger.info("🎤 Audio capture started (debug stats not available)")
             
             self._listening = True
             
@@ -410,22 +420,42 @@ class SpeechToTextService:
                         audio_buffer.pop(0)
                     
                     # Check for speech in current chunk with optional performance monitoring
-                    if self._monitoring_enabled:
-                        with PerformanceContext("vad", metadata={"chunk_size": len(audio_chunk)}):
+                    # Split audio chunk into VAD-compatible frames if needed
+                    vad_frame_size = self._vad.frame_size * 2  # Convert samples to bytes (16-bit audio)
+                    
+                    if len(audio_chunk) == vad_frame_size:
+                        # Perfect match, process directly
+                        if self._monitoring_enabled:
+                            with PerformanceContext("vad", metadata={"chunk_size": len(audio_chunk)}):
+                                is_speech = self._vad.is_speech(audio_chunk)
+                        else:
                             is_speech = self._vad.is_speech(audio_chunk)
+                    elif len(audio_chunk) > vad_frame_size:
+                        # Chunk is larger, use the first VAD frame
+                        vad_frame = audio_chunk[:vad_frame_size]
+                        if self._monitoring_enabled:
+                            with PerformanceContext("vad", metadata={"chunk_size": len(vad_frame)}):
+                                is_speech = self._vad.is_speech(vad_frame)
+                        else:
+                            is_speech = self._vad.is_speech(vad_frame)
+                        logger.debug(f"Using first {vad_frame_size} bytes of {len(audio_chunk)}-byte chunk for VAD")
                     else:
-                        is_speech = self._vad.is_speech(audio_chunk)
+                        # Chunk is smaller, skip VAD for this chunk
+                        is_speech = False
+                        logger.debug(f"Audio chunk too small for VAD: {len(audio_chunk)} < {vad_frame_size} bytes")
                     
                     if is_speech:
                         # Add to speech buffer
                         speech_buffer.append(audio_chunk)
                         silence_counter = 0
-                        logger.debug("Speech detected, adding to buffer")
+                        logger.debug(f"🗣️ Speech detected, buffer size: {len(speech_buffer)} chunks")
                     else:
                         silence_counter += 1
                         
                         # If we have speech buffer and enough silence, process it
                         if speech_buffer and silence_counter >= max_silence_chunks:
+                            logger.info(f"🔄 Processing speech segment: {len(speech_buffer)} chunks, "
+                                       f"silence_counter: {silence_counter}")
                             await self._process_speech_segment(speech_buffer)
                             speech_buffer = []
                             silence_counter = 0
@@ -433,6 +463,7 @@ class SpeechToTextService:
                     # Prevent buffer from growing too large using optimized size
                     if len(speech_buffer) > max_speech_buffer:
                         # Process current buffer and start fresh
+                        logger.info(f"🔄 Processing large speech buffer: {len(speech_buffer)} chunks (max reached)")
                         await self._process_speech_segment(speech_buffer)
                         speech_buffer = []
                         silence_counter = 0
