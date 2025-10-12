@@ -17,11 +17,11 @@ The speech-to-text feature will implement real-time audio capture from a microph
 The system follows a producer-consumer pattern with three main components:
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Audio Input   │───▶│  Audio Buffer   │───▶│  Transcription  │
-│   (Microphone)  │    │   & VAD         │    │   (Ollama)      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Audio Input   │───▶│  Audio Buffer   │───▶│  Transcription  │───▶│ Future Systems  │
+│   (Microphone)  │    │   & VAD         │    │ (faster-whisper)│    │ (Embeddings,    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    │ Response, TTS)  │
+         │                       │                       │            └─────────────────┘
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │ Audio Stream    │    │ Voice Activity  │    │ Text Output     │
@@ -34,8 +34,12 @@ The system follows a producer-consumer pattern with three main components:
 1. **Audio Input**: Continuously captures audio from microphone in small chunks
 2. **Audio Buffer & VAD**: Buffers audio, detects speech activity, and tracks silence periods
 3. **Natural Break Detection**: Identifies when user has finished speaking based on silence duration
-4. **Transcription**: Processes complete speech segments when natural breaks are detected
+4. **Transcription**: Processes complete speech segments using faster-whisper when natural breaks are detected
 5. **Output**: Returns transcribed text for each complete thought/sentence
+6. **Future Integration**: Transcribed text will be passed to downstream systems for:
+   - Embedding generation and storage
+   - AI response generation
+   - Text-to-speech conversion
 
 ## Components and Interfaces
 
@@ -104,23 +108,25 @@ class WhisperTranscriber:
 
 ### 4. SpeechToTextService Class
 
-**Purpose**: Main orchestrator that coordinates all components
+**Purpose**: Main orchestrator that coordinates all components and provides integration interface
 
 ```python
 class SpeechToTextService:
     def __init__(self)
     async def start_listening(self) -> None
     async def stop_listening(self) -> None
-    def get_latest_transcription(self) -> Optional[str]
-    def set_transcription_callback(self, callback: Callable[[str], None]) -> None
+    def get_latest_transcription(self) -> Optional[TranscriptionResult]
+    def set_transcription_callback(self, callback: Callable[[TranscriptionResult], None]) -> None
+    def set_error_callback(self, callback: Callable[[Exception], None]) -> None
 ```
 
 **Key Features:**
 
 - Manages lifecycle of all components
-- Provides callback mechanism for real-time transcription updates
+- Provides callback mechanism for real-time transcription updates to downstream systems
 - Handles graceful shutdown and error recovery
-- Thread-safe access to transcription results
+- Thread-safe access to transcription results with metadata
+- Designed for integration with embedding, response generation, and TTS systems
 
 ## Data Models
 
@@ -313,6 +319,30 @@ MAX_SEGMENT_DURATION = 30.0  # seconds - force transcription of very long segmen
 SILENCE_ADAPTATION_FACTOR = 0.1  # How quickly to adapt to speaker patterns
 NOISE_COMPENSATION_THRESHOLD = 0.02  # Adjust VAD sensitivity based on background noise
 ```
+
+## Integration with Future Systems
+
+The speech-to-text module is designed as the first component in a larger AI assistant pipeline:
+
+### Output Format
+
+- **Structured Output**: Transcription results include metadata (timestamp, confidence, processing time)
+- **Clean Text**: Post-processed text suitable for downstream NLP systems
+- **Segmented Results**: Natural speech segments that align with conversational boundaries
+
+### Future System Integration Points
+
+- **Embedding Pipeline**: Transcribed text will be processed for semantic embeddings and stored for context
+- **Response Generation**: Clean transcription will be fed to AI models (potentially Ollama-based) for response generation
+- **Text-to-Speech**: Generated responses will be converted back to speech for voice interaction
+- **Context Management**: Speech segments will contribute to conversation history and user modeling
+
+### API Design Considerations
+
+- **Callback Architecture**: Supports real-time streaming to downstream systems
+- **Async Processing**: Non-blocking design allows parallel processing in future components
+- **Error Propagation**: Structured error handling for robust pipeline operation
+- **Metadata Preservation**: Maintains timing and confidence information for downstream decision-making
 
 ## Command-Line Interface
 

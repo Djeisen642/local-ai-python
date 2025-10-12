@@ -2,8 +2,9 @@
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from .audio_capture import AudioCapture, AudioCaptureError
 from .vad import VoiceActivityDetector
@@ -11,6 +12,8 @@ from .transcriber import WhisperTranscriber
 from .optimization import get_optimizer
 from .performance_monitor import get_performance_monitor, PerformanceContext
 from .config import ERROR_RECOVERY_SLEEP, DEFAULT_SAMPLE_RATE
+from .pipeline import PluginProcessingPipeline, create_processing_context
+from .interfaces import ProcessingHandler, ProcessingResult
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,10 @@ class SpeechToTextService:
         # Optional performance monitoring
         self._monitoring_enabled = enable_monitoring
         self._performance_monitor = get_performance_monitor() if enable_monitoring else None
+        
+        # Plugin processing pipeline for future system integration
+        self._processing_pipeline = PluginProcessingPipeline()
+        self._pipeline_callback: Callable[[list[ProcessingResult]], None] | None = None
 
     def _get_optimized_config(self) -> dict:
         """Get optimized configuration based on target."""
@@ -176,25 +183,128 @@ class SpeechToTextService:
             callback: Function to call with transcription results
         """
         self._transcription_callback = callback
+    
+    def set_pipeline_callback(self, callback: Callable[[list[ProcessingResult]], None]) -> None:
+        """
+        Set callback function for pipeline processing results.
+        
+        Args:
+            callback: Function to call with pipeline processing results
+        """
+        self._pipeline_callback = callback
+    
+    def register_processing_handler(self, handler: ProcessingHandler) -> bool:
+        """
+        Register a processing handler for future system integration.
+        
+        Args:
+            handler: Processing handler to register
+            
+        Returns:
+            True if registration was successful
+        """
+        return self._processing_pipeline.register_handler(handler)
+    
+    def unregister_processing_handler(self, stage_name: str, handler_name: str) -> bool:
+        """
+        Unregister a processing handler.
+        
+        Args:
+            stage_name: Name of the processing stage
+            handler_name: Name of the handler to unregister
+            
+        Returns:
+            True if unregistration was successful
+        """
+        from .interfaces import ProcessingStage
+        
+        # Convert stage name to ProcessingStage enum
+        try:
+            stage = ProcessingStage(stage_name)
+            return self._processing_pipeline.unregister_handler(stage, handler_name)
+        except ValueError:
+            logger.error(f"Invalid processing stage: {stage_name}")
+            return False
+    
+    def get_registered_handlers(self) -> Dict[str, list[str]]:
+        """
+        Get information about registered processing handlers.
+        
+        Returns:
+            Dictionary mapping stage names to handler names
+        """
+        return self._processing_pipeline.get_handler_info()
+    
+    def get_pipeline_stats(self) -> Dict[str, Any]:
+        """
+        Get pipeline processing statistics.
+        
+        Returns:
+            Dictionary with pipeline statistics
+        """
+        return self._processing_pipeline.get_pipeline_stats()
 
-    def _update_transcription(self, text: str) -> None:
+    def _update_transcription(self, text: str, transcription_metadata: Optional[Dict[str, Any]] = None) -> None:
         """
         Update the latest transcription and notify callback.
         
         Args:
             text: New transcription text
+            transcription_metadata: Optional metadata about the transcription
         """
         if not text or not text.strip():
             return
         
         self._latest_transcription = text
         
-        # Call callback if set
+        # Call transcription callback if set
         if self._transcription_callback:
             try:
                 self._transcription_callback(text)
             except Exception as e:
                 logger.error(f"Error in transcription callback: {e}")
+        
+        # Trigger pipeline processing for future systems
+        if transcription_metadata:
+            asyncio.create_task(self._trigger_pipeline_processing(text, transcription_metadata))
+    
+    async def _trigger_pipeline_processing(self, text: str, metadata: Dict[str, Any]) -> None:
+        """
+        Trigger processing pipeline for downstream systems.
+        
+        Args:
+            text: Transcribed text
+            metadata: Transcription metadata
+        """
+        try:
+            # Create processing context with all necessary metadata
+            context = create_processing_context(
+                text=text,
+                confidence=metadata.get("confidence", 0.0),
+                timestamp=metadata.get("timestamp", time.time()),
+                processing_time=metadata.get("processing_time", 0.0),
+                audio_duration=metadata.get("audio_duration", 0.0),
+                sample_rate=metadata.get("sample_rate", DEFAULT_SAMPLE_RATE),
+                chunk_count=metadata.get("chunk_count", 0),
+                session_id=metadata.get("session_id"),
+                user_id=metadata.get("user_id"),
+                metadata=metadata.get("additional_metadata", {})
+            )
+            
+            # Process through pipeline
+            results = await self._processing_pipeline.process_transcription(context)
+            
+            # Call pipeline callback if set
+            if self._pipeline_callback:
+                try:
+                    self._pipeline_callback(results)
+                except Exception as e:
+                    logger.error(f"Error in pipeline callback: {e}")
+            
+            logger.debug(f"Pipeline processing completed with {len(results)} results")
+            
+        except Exception as e:
+            logger.error(f"Error in pipeline processing: {e}")
 
     def is_listening(self) -> bool:
         """
@@ -374,6 +484,7 @@ class SpeechToTextService:
             logger.debug(f"Processing speech segment of {len(combined_audio)} bytes")
             
             # Transcribe the audio segment with optional performance monitoring
+            transcription_start_time = time.time()
             if self._monitoring_enabled:
                 with PerformanceContext("transcription", metadata={"audio_size": len(combined_audio), "chunk_count": len(speech_chunks)}) as ctx:
                     transcription = await self._transcriber.transcribe_audio(combined_audio)
@@ -381,9 +492,29 @@ class SpeechToTextService:
             else:
                 transcription = await self._transcriber.transcribe_audio(combined_audio)
             
+            transcription_time = time.time() - transcription_start_time
+            
             if transcription and transcription.strip():
                 logger.info(f"Transcription result: {transcription}")
-                self._update_transcription(transcription)
+                
+                # Create metadata for pipeline processing
+                transcription_metadata = {
+                    "confidence": 0.8,  # Default confidence, could be enhanced with actual Whisper confidence
+                    "timestamp": time.time(),
+                    "processing_time": transcription_time,
+                    "audio_duration": len(combined_audio) / (sample_rate * 2),  # bytes to seconds (16-bit audio)
+                    "sample_rate": sample_rate,
+                    "chunk_count": len(speech_chunks),
+                    "session_id": getattr(self, '_session_id', None),
+                    "user_id": getattr(self, '_user_id', None),
+                    "additional_metadata": {
+                        "audio_size_bytes": len(combined_audio),
+                        "optimization_target": self._optimization_target,
+                        "monitoring_enabled": self._monitoring_enabled
+                    }
+                }
+                
+                self._update_transcription(transcription, transcription_metadata)
             else:
                 logger.debug("Empty transcription result")
                 
