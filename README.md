@@ -351,3 +351,4 @@ If you encounter issues not covered here:
 ## Notes
 
 - Based on [Python Boilerplate](https://github.com/smarlhens/python-boilerplate)
+- Built with assistance from [Kiro](https://kiro.ai) - an AI-powered development assistant
