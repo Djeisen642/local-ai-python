@@ -231,16 +231,22 @@ def handle_arguments(args: argparse.Namespace) -> tuple[bool, bool]:
             level=TRACE_LEVEL,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
+        # Enable faster-whisper INFO logs in trace mode
+        logging.getLogger("faster_whisper").setLevel(logging.INFO)
     elif args.verbose:
         logging.basicConfig(
             level='DEBUG',
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
+        # Enable faster-whisper INFO logs in verbose mode
+        logging.getLogger("faster_whisper").setLevel(logging.INFO)
     else:
         logging.basicConfig(
             level='INFO',
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
+        # Suppress faster-whisper INFO logs in normal mode (only show WARNING and above)
+        logging.getLogger("faster_whisper").setLevel(logging.WARNING)
     
     # Handle cache resets if requested
     cache_operations_performed = False
