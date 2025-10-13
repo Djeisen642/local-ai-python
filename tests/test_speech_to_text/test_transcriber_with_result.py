@@ -6,6 +6,7 @@ from local_ai.speech_to_text.transcriber import WhisperTranscriber
 from local_ai.speech_to_text.models import TranscriptionResult
 
 
+@pytest.mark.unit
 class TestWhisperTranscriberWithResult:
     """Test cases for transcribe_audio_with_result method."""
 

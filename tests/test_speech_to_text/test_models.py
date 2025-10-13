@@ -4,6 +4,7 @@ import pytest
 from local_ai.speech_to_text.models import AudioChunk, SpeechSegment, TranscriptionResult
 
 
+@pytest.mark.unit
 class TestAudioChunk:
     """Test cases for AudioChunk data model."""
     
@@ -22,6 +23,7 @@ class TestAudioChunk:
         assert chunk.duration == 1.0
 
 
+@pytest.mark.unit
 class TestTranscriptionResult:
     """Test cases for TranscriptionResult data model."""
     
@@ -40,6 +42,7 @@ class TestTranscriptionResult:
         assert result.processing_time == 0.5
 
 
+@pytest.mark.unit
 class TestSpeechSegment:
     """Test cases for SpeechSegment data model."""
     

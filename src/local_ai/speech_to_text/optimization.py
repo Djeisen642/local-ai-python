@@ -1,6 +1,7 @@
 """Performance optimizations for speech-to-text pipeline."""
 
 import logging
+from .logging_utils import get_logger
 from typing import Dict, Any, Optional
 from .config import (
     VAD_AGGRESSIVENESS,
@@ -35,20 +36,22 @@ from .config import (
 )
 from .optimization_cache import get_optimization_cache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PerformanceOptimizer:
     """Optimizes speech-to-text pipeline performance based on system capabilities."""
     
-    def __init__(self, use_cache: bool = True):
+    def __init__(self, use_cache: bool = True, force_cpu: bool = False):
         """
         Initialize the performance optimizer.
         
         Args:
             use_cache: Whether to use cached optimization data
+            force_cpu: Whether to force CPU-only mode (disable GPU/CUDA)
         """
         self.use_cache = use_cache
+        self.force_cpu = force_cpu
         self.cache = get_optimization_cache() if use_cache else None
         self.system_info = self._detect_system_capabilities()
         self.optimized_config = self._generate_optimized_config()
@@ -73,9 +76,24 @@ class PerformanceOptimizer:
             "memory_gb": 4  # Default conservative estimate
         }
         
-        # Force CPU-only mode to avoid CUDA/cuDNN compatibility issues
-        logger.info("GPU detection disabled - using CPU-only mode for stability")
-        capabilities["has_gpu"] = False
+        # Check if GPU should be forced off
+        if self.force_cpu:
+            logger.debug("GPU detection disabled - force CPU mode requested")
+            capabilities["has_gpu"] = False
+        else:
+            # Try to detect GPU capabilities
+            capabilities["has_gpu"] = self._validate_cuda_availability()
+            if capabilities["has_gpu"]:
+                # Try to get GPU memory info
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        gpu_memory_bytes = torch.cuda.get_device_properties(0).total_memory
+                        capabilities["gpu_memory_gb"] = gpu_memory_bytes / (BYTES_PER_KB**3)
+                        logger.debug(f"GPU detected with {capabilities['gpu_memory_gb']:.1f}GB memory")
+                except Exception as e:
+                    logger.debug(f"Could not get GPU memory info: {e}")
+                    capabilities["gpu_memory_gb"] = 0
         
         # Try to detect memory
         try:
@@ -84,7 +102,7 @@ class PerformanceOptimizer:
         except ImportError:
             pass
         
-        logger.info(f"Detected system capabilities: {capabilities}")
+        logger.debug(f"Detected system capabilities: {capabilities}")
         
         # Cache the results
         if self.use_cache and self.cache:
@@ -104,11 +122,11 @@ class PerformanceOptimizer:
             
             # First check if torch thinks CUDA is available
             if not torch.cuda.is_available():
-                logger.info("CUDA not available according to PyTorch")
+                logger.debug("CUDA not available according to PyTorch")
                 return False
             
             # Try to actually use CUDA to validate it works
-            logger.info("Validating CUDA functionality...")
+            logger.debug("Validating CUDA functionality...")
             
             # Test basic CUDA operations
             device = torch.device("cuda:0")
@@ -122,24 +140,24 @@ class PerformanceOptimizer:
                 logger.error("CUDA validation failed - tensor operations incorrect")
                 return False
             
-            logger.info("CUDA validation successful")
+            logger.debug("CUDA validation successful")
             return True
             
         except ImportError:
-            logger.info("PyTorch not available - CUDA disabled")
+            logger.debug("PyTorch not available - CUDA disabled")
             return False
         except RuntimeError as e:
             error_msg = str(e).lower()
             if "cuda" in error_msg or "cudnn" in error_msg or "gpu" in error_msg:
                 logger.warning(f"CUDA validation failed with runtime error: {e}")
-                logger.info("Falling back to CPU-only mode due to CUDA issues")
+                logger.debug("Falling back to CPU-only mode due to CUDA issues")
                 return False
             else:
                 # Re-raise if it's not a CUDA-related error
                 raise
         except Exception as e:
             logger.warning(f"CUDA validation failed with unexpected error: {e}")
-            logger.info("Falling back to CPU-only mode for safety")
+            logger.debug("Falling back to CPU-only mode for safety")
             return False
     
     def _generate_optimized_config(self) -> Dict[str, Any]:
@@ -177,10 +195,27 @@ class PerformanceOptimizer:
             config["buffer_size"] = HIGH_MEMORY_BUFFER_SIZE  # ~10 seconds buffer
             config["max_audio_buffer_size"] = 15
         
-        # Force CPU-only mode to avoid CUDA/cuDNN compatibility issues
-        logger.info("Using CPU-only mode for Whisper transcription (CUDA disabled due to compatibility issues)")
-        config["device"] = "cpu"
-        config["compute_type"] = "int8"
+        # Configure device based on GPU availability and force_cpu setting
+        if self.force_cpu or not self.system_info["has_gpu"]:
+            if self.force_cpu:
+                logger.debug("Using CPU-only mode for Whisper transcription (force CPU requested)")
+            else:
+                logger.debug("Using CPU-only mode for Whisper transcription (no GPU available)")
+            config["device"] = "cpu"
+            config["compute_type"] = "int8"
+        else:
+            logger.debug("Using GPU acceleration for Whisper transcription")
+            config["device"] = "cuda"
+            config["compute_type"] = "float16"  # Better for GPU
+            
+            # Adjust model size based on GPU memory
+            gpu_memory = self.system_info.get("gpu_memory_gb", 0)
+            if gpu_memory >= ULTRA_GPU_MEMORY_GB:
+                config["whisper_model_size"] = "large"
+            elif gpu_memory >= HIGH_GPU_MEMORY_GB:
+                config["whisper_model_size"] = "medium"
+            else:
+                config["whisper_model_size"] = "small"
         
         # Optimize CPU performance based on system capabilities
         if self.system_info["cpu_count"] >= 8:
@@ -192,7 +227,7 @@ class PerformanceOptimizer:
         if self.system_info["platform"] == "Linux":
             config["vad_aggressiveness"] = min(3, VAD_AGGRESSIVENESS + 1)  # More aggressive on Linux
         
-        logger.info(f"Generated optimized config: {config}")
+        logger.debug(f"Generated optimized config: {config}")
         return config
     
     def get_optimized_audio_config(self) -> Dict[str, Any]:
@@ -242,7 +277,7 @@ class PerformanceOptimizer:
         latency_config["processing_interval"] = 0.005  # More frequent processing
         latency_config["vad_frame_duration"] = LATENCY_VAD_FRAME_DURATION
         
-        logger.info("Applied latency optimizations")
+        logger.debug("Applied latency optimizations")
         return latency_config
     
     def optimize_for_accuracy(self) -> Dict[str, Any]:
@@ -261,7 +296,7 @@ class PerformanceOptimizer:
         if self.system_info.get("gpu_memory_gb", 0) >= ULTRA_GPU_MEMORY_GB:
             accuracy_config["whisper_model_size"] = "large"
         
-        logger.info("Applied accuracy optimizations")
+        logger.debug("Applied accuracy optimizations")
         return accuracy_config
     
     def optimize_for_resource_usage(self) -> Dict[str, Any]:
@@ -277,7 +312,7 @@ class PerformanceOptimizer:
         resource_config["compute_type"] = "int8"  # Most efficient compute type
         resource_config["max_audio_buffer_size"] = 5  # Smaller buffer
         
-        logger.info("Applied resource usage optimizations")
+        logger.debug("Applied resource usage optimizations")
         return resource_config
 
 
@@ -325,7 +360,7 @@ class AdaptiveOptimizer:
             return self.current_config
         
         self.adaptation_count += 1
-        logger.info(f"Adapting configuration (adaptation #{self.adaptation_count})")
+        logger.debug(f"Adapting configuration (adaptation #{self.adaptation_count})")
         
         # Get recent performance metrics
         recent_metrics = self.performance_history[-3:]
@@ -335,14 +370,14 @@ class AdaptiveOptimizer:
         # Adapt based on performance issues
         if avg_latency > 5.0:
             # High latency - optimize for speed
-            logger.info("High latency detected, optimizing for speed")
+            logger.debug("High latency detected, optimizing for speed")
             self.current_config["chunk_size"] = max(MINIMUM_CHUNK_SIZE, self.current_config["chunk_size"] // 2)
             self.current_config["processing_interval"] = max(MINIMUM_PROCESSING_INTERVAL, self.current_config["processing_interval"] / 2)
             self.current_config["max_silence_duration"] = max(0.5, self.current_config["max_silence_duration"] - 0.5)
         
         if avg_cpu > HIGH_CPU_THRESHOLD:
             # High CPU usage - reduce processing load
-            logger.info("High CPU usage detected, reducing processing load")
+            logger.debug("High CPU usage detected, reducing processing load")
             self.current_config["chunk_size"] = min(RESOURCE_CHUNK_SIZE, self.current_config["chunk_size"] * 2)
             self.current_config["processing_interval"] = min(0.05, self.current_config["processing_interval"] * 2)
             
@@ -361,34 +396,42 @@ class AdaptiveOptimizer:
 
 # Global optimizer instance
 _global_optimizer: Optional[PerformanceOptimizer] = None
+_global_optimizer_force_cpu: Optional[bool] = None
 
 
-def get_optimizer(use_cache: bool = True, force_refresh: bool = False) -> PerformanceOptimizer:
+def get_optimizer(use_cache: bool = True, force_refresh: bool = False, force_cpu: bool = False) -> PerformanceOptimizer:
     """
     Get global performance optimizer instance.
     
     Args:
         use_cache: Whether to use cached optimization data
         force_refresh: Force recreation of optimizer (clears cache)
+        force_cpu: Whether to force CPU-only mode
     """
-    global _global_optimizer
-    if _global_optimizer is None or force_refresh:
-        _global_optimizer = PerformanceOptimizer(use_cache=use_cache)
+    global _global_optimizer, _global_optimizer_force_cpu
+    
+    # Recreate optimizer if force_cpu setting has changed
+    force_cpu_changed = _global_optimizer_force_cpu is not None and _global_optimizer_force_cpu != force_cpu
+    
+    if _global_optimizer is None or force_refresh or force_cpu_changed:
+        _global_optimizer = PerformanceOptimizer(use_cache=use_cache, force_cpu=force_cpu)
+        _global_optimizer_force_cpu = force_cpu
     return _global_optimizer
 
 
-def get_optimized_config(optimization_target: str = "balanced", use_cache: bool = True) -> Dict[str, Any]:
+def get_optimized_config(optimization_target: str = "balanced", use_cache: bool = True, force_cpu: bool = False) -> Dict[str, Any]:
     """
     Get optimized configuration for specific target with caching.
     
     Args:
         optimization_target: "latency", "accuracy", "resource", or "balanced"
         use_cache: Whether to use cached configurations
+        force_cpu: Whether to force CPU-only mode
         
     Returns:
         Optimized configuration dictionary
     """
-    optimizer = get_optimizer(use_cache=use_cache)
+    optimizer = get_optimizer(use_cache=use_cache, force_cpu=force_cpu)
     
     # Try to get from cache first
     if use_cache and optimizer.cache:

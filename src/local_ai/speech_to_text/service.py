@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from .logging_utils import get_logger
 import time
 from collections.abc import Callable
 from typing import Optional, Dict, Any
@@ -15,13 +16,13 @@ from .config import ERROR_RECOVERY_SLEEP, DEFAULT_SAMPLE_RATE
 from .pipeline import PluginProcessingPipeline, create_processing_context
 from .interfaces import ProcessingHandler, ProcessingResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SpeechToTextService:
     """Main orchestrator that coordinates all speech-to-text components."""
 
-    def __init__(self, optimization_target: str = "balanced", enable_monitoring: bool = False, use_cache: bool = True) -> None:
+    def __init__(self, optimization_target: str = "balanced", enable_monitoring: bool = False, use_cache: bool = True, force_cpu: bool = False) -> None:
         """
         Initialize the speech-to-text service.
         
@@ -29,6 +30,7 @@ class SpeechToTextService:
             optimization_target: "latency", "accuracy", "resource", or "balanced"
             enable_monitoring: Whether to enable performance monitoring (adds overhead)
             use_cache: Whether to use cached optimization data
+            force_cpu: Whether to force CPU-only mode (disable GPU/CUDA)
         """
         self._listening = False
         self._transcription_callback: Callable[[str], None] | None = None
@@ -44,7 +46,8 @@ class SpeechToTextService:
         
         # Performance optimization
         self._use_cache = use_cache
-        self._optimizer = get_optimizer(use_cache=use_cache)
+        self._force_cpu = force_cpu
+        self._optimizer = get_optimizer(use_cache=use_cache, force_cpu=force_cpu)
         self._optimization_target = optimization_target
         self._optimized_config = self._get_optimized_config()
         
@@ -59,7 +62,7 @@ class SpeechToTextService:
     def _get_optimized_config(self) -> dict:
         """Get optimized configuration based on target."""
         from .optimization import get_optimized_config
-        return get_optimized_config(self._optimization_target, use_cache=self._use_cache)
+        return get_optimized_config(self._optimization_target, use_cache=self._use_cache, force_cpu=self._force_cpu)
 
     def _initialize_components(self) -> bool:
         """
@@ -90,7 +93,9 @@ class SpeechToTextService:
             
             # Initialize transcriber with optimized settings
             self._transcriber = WhisperTranscriber(
-                model_size=transcriber_config["model_size"]
+                model_size=transcriber_config["model_size"],
+                device=transcriber_config["device"],
+                compute_type=transcriber_config["compute_type"]
             )
             
             # Check if transcriber model is available
@@ -98,7 +103,7 @@ class SpeechToTextService:
                 logger.error("Whisper model not available")
                 return False
             
-            logger.info(f"All speech-to-text components initialized successfully with {self._optimization_target} optimization")
+            logger.debug(f"All speech-to-text components initialized successfully with {self._optimization_target} optimization")
             return True
             
         except Exception as e:
@@ -130,22 +135,22 @@ class SpeechToTextService:
             
             # Start audio capture
             if self._audio_capture:
-                logger.info("🎤 Starting audio capture...")
+                logger.debug("🎤 Starting audio capture...")
                 self._audio_capture.start_capture()
                 
                 # Log audio capture debug stats if available
                 if hasattr(self._audio_capture, 'get_debug_stats'):
                     debug_stats = self._audio_capture.get_debug_stats()
-                    logger.info(f"🎤 Audio capture status: {debug_stats}")
+                    logger.debug(f"🎤 Audio capture status: {debug_stats}")
                 else:
-                    logger.info("🎤 Audio capture started (debug stats not available)")
+                    logger.debug("🎤 Audio capture started (debug stats not available)")
             
             self._listening = True
             
             # Start the real-time processing pipeline
             self._processing_task = asyncio.create_task(self._process_audio_pipeline())
             
-            logger.info("Speech-to-text service started listening")
+            logger.debug("Speech-to-text service started listening")
             
         except AudioCaptureError as e:
             logger.error(f"Audio capture error: {e}")
@@ -174,7 +179,7 @@ class SpeechToTextService:
         # Clean up components
         self._cleanup_components()
         
-        logger.info("Speech-to-text service stopped listening")
+        logger.debug("Speech-to-text service stopped listening")
 
     def get_latest_transcription(self) -> str | None:
         """
@@ -399,7 +404,7 @@ class SpeechToTextService:
         min_audio_size = int(pipeline_config["min_speech_duration"] * sample_rate * 2)  # bytes for min duration
         processing_interval = pipeline_config["processing_interval"]
         
-        logger.info("Starting real-time audio processing pipeline")
+        logger.debug("Starting real-time audio processing pipeline")
         
         try:
             while self._listening:
@@ -438,23 +443,23 @@ class SpeechToTextService:
                                 is_speech = self._vad.is_speech(vad_frame)
                         else:
                             is_speech = self._vad.is_speech(vad_frame)
-                        logger.debug(f"Using first {vad_frame_size} bytes of {len(audio_chunk)}-byte chunk for VAD")
+                        logger.trace(f"Using first {vad_frame_size} bytes of {len(audio_chunk)}-byte chunk for VAD")
                     else:
                         # Chunk is smaller, skip VAD for this chunk
                         is_speech = False
-                        logger.debug(f"Audio chunk too small for VAD: {len(audio_chunk)} < {vad_frame_size} bytes")
+                        logger.trace(f"Audio chunk too small for VAD: {len(audio_chunk)} < {vad_frame_size} bytes")
                     
                     if is_speech:
                         # Add to speech buffer
                         speech_buffer.append(audio_chunk)
                         silence_counter = 0
-                        logger.debug(f"🗣️ Speech detected, buffer size: {len(speech_buffer)} chunks")
+                        logger.trace(f"🗣️ Speech detected, buffer size: {len(speech_buffer)} chunks")
                     else:
                         silence_counter += 1
                         
                         # If we have speech buffer and enough silence, process it
                         if speech_buffer and silence_counter >= max_silence_chunks:
-                            logger.info(f"🔄 Processing speech segment: {len(speech_buffer)} chunks, "
+                            logger.debug(f"🔄 Processing speech segment: {len(speech_buffer)} chunks, "
                                        f"silence_counter: {silence_counter}")
                             await self._process_speech_segment(speech_buffer)
                             speech_buffer = []
@@ -463,7 +468,7 @@ class SpeechToTextService:
                     # Prevent buffer from growing too large using optimized size
                     if len(speech_buffer) > max_speech_buffer:
                         # Process current buffer and start fresh
-                        logger.info(f"🔄 Processing large speech buffer: {len(speech_buffer)} chunks (max reached)")
+                        logger.debug(f"🔄 Processing large speech buffer: {len(speech_buffer)} chunks (max reached)")
                         await self._process_speech_segment(speech_buffer)
                         speech_buffer = []
                         silence_counter = 0
@@ -472,7 +477,7 @@ class SpeechToTextService:
                     await asyncio.sleep(processing_interval)
                     
                 except asyncio.CancelledError:
-                    logger.info("Audio processing pipeline cancelled")
+                    logger.debug("Audio processing pipeline cancelled")
                     break
                 except Exception as e:
                     logger.error(f"Error in audio processing pipeline: {e}")
@@ -486,7 +491,7 @@ class SpeechToTextService:
         except Exception as e:
             logger.error(f"Fatal error in audio processing pipeline: {e}")
         finally:
-            logger.info("Audio processing pipeline stopped")
+            logger.debug("Audio processing pipeline stopped")
 
     async def _process_speech_segment(self, speech_chunks: list[bytes]) -> None:
         """
@@ -509,10 +514,10 @@ class SpeechToTextService:
             
             # Skip very short segments using optimized minimum duration
             if len(combined_audio) < min_audio_size:
-                logger.debug(f"Speech segment too short ({len(combined_audio)} bytes), skipping transcription")
+                logger.trace(f"Speech segment too short ({len(combined_audio)} bytes), skipping transcription")
                 return
             
-            logger.debug(f"Processing speech segment of {len(combined_audio)} bytes")
+            logger.trace(f"Processing speech segment of {len(combined_audio)} bytes")
             
             # Transcribe the audio segment with optional performance monitoring
             transcription_start_time = time.time()
@@ -526,7 +531,7 @@ class SpeechToTextService:
             transcription_time = time.time() - transcription_start_time
             
             if transcription and transcription.strip():
-                logger.info(f"Transcription result: {transcription}")
+                logger.debug(f"Transcription result: {transcription}")
                 
                 # Create metadata for pipeline processing
                 transcription_metadata = {
@@ -547,10 +552,10 @@ class SpeechToTextService:
                 
                 self._update_transcription(transcription, transcription_metadata)
             else:
-                logger.debug("Empty transcription result")
+                logger.trace("Empty transcription result")
                 
         except asyncio.CancelledError:
-            logger.debug("Speech segment processing cancelled")
+            logger.trace("Speech segment processing cancelled")
             raise
         except Exception as e:
             logger.error(f"Error processing speech segment: {e}")

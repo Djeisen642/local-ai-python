@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 from local_ai.speech_to_text.audio_capture import AudioCapture, AudioCaptureError, MicrophoneNotFoundError
 
 
+@pytest.mark.unit
 class TestAudioCapture:
     """Test cases for AudioCapture class."""
     

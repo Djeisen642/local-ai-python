@@ -16,6 +16,7 @@ from local_ai.speech_to_text.interfaces import (
 )
 
 
+@pytest.mark.unit
 class TestProcessingContext:
     """Test cases for ProcessingContext data model."""
     
@@ -73,6 +74,7 @@ class TestProcessingContext:
         assert "key2" in context.metadata
 
 
+@pytest.mark.unit
 class TestProcessingResult:
     """Test cases for ProcessingResult data model."""
     
@@ -225,6 +227,7 @@ class MockTTSHandler(TextToSpeechHandler):
         return True
 
 
+@pytest.mark.unit
 class TestProcessingHandlers:
     """Test cases for processing handler interfaces."""
     

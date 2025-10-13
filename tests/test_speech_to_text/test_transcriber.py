@@ -8,6 +8,7 @@ from local_ai.speech_to_text.transcriber import WhisperTranscriber
 WHISPER_MODEL_PATCH = 'local_ai.speech_to_text.transcriber.faster_whisper.WhisperModel'
 
 
+@pytest.mark.unit
 class TestWhisperTranscriber:
     """Test cases for WhisperTranscriber class."""
     

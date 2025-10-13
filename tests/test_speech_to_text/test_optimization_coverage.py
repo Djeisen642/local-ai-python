@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from local_ai.speech_to_text.optimization import PerformanceOptimizer, AdaptiveOptimizer
 
 
+@pytest.mark.unit
 class TestOptimizationCoverage:
     """Test cases to improve coverage of optimization functionality."""
 

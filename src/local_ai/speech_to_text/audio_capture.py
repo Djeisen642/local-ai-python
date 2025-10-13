@@ -2,6 +2,7 @@
 
 import pyaudio
 import logging
+from .logging_utils import get_logger
 import struct
 import time
 from typing import Optional, List, Dict, Any
@@ -9,7 +10,7 @@ from typing import Optional, List, Dict, Any
 from .exceptions import AudioCaptureError, MicrophoneNotFoundError
 from .config import DEFAULT_SAMPLE_RATE, DEFAULT_CHUNK_SIZE
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AudioCapture:
@@ -48,7 +49,7 @@ class AudioCapture:
         try:
             # Initialize PyAudio
             self._pyaudio = pyaudio.PyAudio()
-            logger.info("PyAudio initialized successfully")
+            logger.debug("PyAudio initialized successfully")
             
             # Log available audio devices for debugging
             self._log_audio_devices()
@@ -61,10 +62,10 @@ class AudioCapture:
                     device_name = device_info.get('name', 'Unknown') if hasattr(device_info, 'get') else str(device_info)
                     max_channels = device_info.get('maxInputChannels', 'Unknown') if hasattr(device_info, 'get') else 'Unknown'
                     sample_rate = device_info.get('defaultSampleRate', 'Unknown') if hasattr(device_info, 'get') else 'Unknown'
-                    logger.info(f"🎤 Default input device found: {device_name} "
+                    logger.debug(f"🎤 Default input device found: {device_name} "
                                f"(channels: {max_channels}, sample_rate: {sample_rate})")
                 except (TypeError, AttributeError):
-                    logger.info("🎤 Default input device found (details unavailable)")
+                    logger.debug("🎤 Default input device found (details unavailable)")
             except OSError as e:
                 logger.error("❌ No default input device found")
                 raise MicrophoneNotFoundError("No microphone found") from e
@@ -80,7 +81,7 @@ class AudioCapture:
                 )
                 self._stream.start_stream()
                 self._capturing = True
-                logger.info(f"✅ Audio stream started successfully "
+                logger.debug(f"✅ Audio stream started successfully "
                            f"(sample_rate: {self.sample_rate}, chunk_size: {self.chunk_size})")
                 
                 # Reset debug counters
@@ -144,14 +145,14 @@ class AudioCapture:
                         # Log audio levels periodically
                         current_time = time.time()
                         if current_time - self._last_audio_level_log >= self._audio_level_log_interval:
-                            logger.debug(f"🔊 Audio chunks received: {self._audio_chunks_received}, "
+                            logger.trace(f"🔊 Audio chunks received: {self._audio_chunks_received}, "
                                        f"current level: {audio_level:.3f}, "
                                        f"chunk size: {len(data)} bytes")
                             self._last_audio_level_log = current_time
                         
                         # Log significant audio activity
                         if audio_level > 0.01:  # Threshold for "significant" audio
-                            logger.debug(f"🎵 Audio activity detected: level={audio_level:.3f}")
+                            logger.trace(f"🎵 Audio activity detected: level={audio_level:.3f}")
                         
                         return data
                 except OSError as e:
@@ -177,7 +178,7 @@ class AudioCapture:
         """Log available audio input devices for debugging."""
         try:
             device_count = self._pyaudio.get_device_count()
-            logger.debug(f"🎤 Found {device_count} audio devices:")
+            logger.trace(f"🎤 Found {device_count} audio devices:")
             
             input_devices = []
             for i in range(device_count):
@@ -201,13 +202,13 @@ class AudioCapture:
                             'channels': max_input_channels,
                             'sample_rate': sample_rate
                         })
-                        logger.debug(f"  [{i}] {device_name} "
+                        logger.trace(f"  [{i}] {device_name} "
                                    f"(in: {max_input_channels}, rate: {sample_rate})")
                 except Exception as e:
-                    logger.debug(f"  [{i}] Error getting device info: {e}")
+                    logger.trace(f"  [{i}] Error getting device info: {e}")
             
             if input_devices:
-                logger.info(f"✅ Found {len(input_devices)} input devices available")
+                logger.debug(f"✅ Found {len(input_devices)} input devices available")
             else:
                 logger.warning("⚠️ No input devices found")
                 
@@ -235,7 +236,7 @@ class AudioCapture:
                 return min(rms / 32767.0, 1.0)
             return 0.0
         except Exception as e:
-            logger.debug(f"Error calculating audio level: {e}")
+            logger.trace(f"Error calculating audio level: {e}")
             return 0.0
     
     def get_debug_stats(self) -> Dict[str, Any]:

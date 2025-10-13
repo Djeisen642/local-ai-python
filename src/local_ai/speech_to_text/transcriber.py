@@ -3,6 +3,7 @@
 import asyncio
 import io
 import logging
+from .logging_utils import get_logger
 import time
 import wave
 import struct
@@ -24,21 +25,26 @@ except ImportError:
     faster_whisper = None
 
 from .models import TranscriptionResult
+from .cache_utils import get_whisper_cache_dir
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WhisperTranscriber:
     """Uses faster-whisper library for local speech-to-text conversion."""
 
-    def __init__(self, model_size: str = "small") -> None:
+    def __init__(self, model_size: str = "small", device: str = "cpu", compute_type: str = "int8") -> None:
         """
         Initialize Whisper transcriber.
 
         Args:
             model_size: Size of Whisper model to use
+            device: Device to use for inference ("cpu" or "cuda")
+            compute_type: Compute type for inference ("int8", "float16", etc.)
         """
         self.model_size = model_size
+        self.device = device
+        self.compute_type = compute_type
         self._model: Optional[Any] = None
         self._model_loaded = False
 
@@ -58,21 +64,25 @@ class WhisperTranscriber:
             
             WhisperModel = faster_whisper.WhisperModel
 
-            # Force CPU-only mode for stability (avoid CUDA/cuDNN issues)
-            device = "cpu"
-            compute_type = "int8"
-
-            logger.info(f"Loading Whisper model '{self.model_size}' with device='{device}', compute_type='{compute_type}' (CPU-only mode)")
+            # Use configured device and compute type
+            device = self.device
+            compute_type = self.compute_type
+            
+            mode_desc = "CPU-only mode" if device == "cpu" else f"GPU acceleration ({device})"
+            logger.debug(f"Loading Whisper model '{self.model_size}' with device='{device}', compute_type='{compute_type}' ({mode_desc})")
+            
+            # Use unified cache directory for Whisper models
+            whisper_cache_dir = get_whisper_cache_dir()
             
             self._model = WhisperModel(
                 self.model_size,
                 device=device,
                 compute_type=compute_type,
-                download_root=None,  # Use default cache location
+                download_root=str(whisper_cache_dir),
             )
             
             self._model_loaded = True
-            logger.info(f"Successfully loaded Whisper model '{self.model_size}'")
+            logger.debug(f"Successfully loaded Whisper model '{self.model_size}'")
             return True
 
         except ImportError as e:
@@ -333,7 +343,7 @@ class WhisperTranscriber:
                     processing_time = time.time() - processing_start_time
                     
                     if processed_text.strip():
-                        logger.info(f"✅ Transcription successful: '{processed_text}' "
+                        logger.trace(f"✅ Transcription successful: '{processed_text}' "
                                    f"({len(audio_data)} bytes -> {len(processed_text)} chars, "
                                    f"{processing_time:.2f}s)")
                     else:
@@ -508,37 +518,44 @@ class WhisperTranscriber:
             self._model = None
             self._model_loaded = False
             
-            # Get HuggingFace cache directory
-            cache_dir = Path.home() / ".cache" / "huggingface"
-            
-            if not cache_dir.exists():
-                logger.info("No HuggingFace cache directory found")
-                return True
-            
-            # Look for Whisper model directories
             models_cleared = 0
             
-            # Check for faster-whisper cache directories
-            for item in cache_dir.iterdir():
-                if item.is_dir() and ("whisper" in item.name.lower() or "openai" in item.name.lower()):
-                    try:
-                        logger.info(f"Removing cached model directory: {item}")
-                        shutil.rmtree(item)
-                        models_cleared += 1
-                    except Exception as e:
-                        logger.warning(f"Failed to remove cache directory {item}: {e}")
+            # Clear unified cache directory
+            whisper_cache_dir = get_whisper_cache_dir()
+            if whisper_cache_dir.exists():
+                try:
+                    logger.debug(f"Removing unified Whisper cache directory: {whisper_cache_dir}")
+                    shutil.rmtree(whisper_cache_dir)
+                    models_cleared += 1
+                    # Recreate the directory for future use
+                    whisper_cache_dir.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    logger.warning(f"Failed to remove unified cache directory {whisper_cache_dir}: {e}")
             
-            # Also check hub cache for transformers-style models
-            hub_cache = cache_dir / "hub"
-            if hub_cache.exists():
-                for item in hub_cache.iterdir():
-                    if item.is_dir() and "whisper" in item.name.lower():
+            # Also clear legacy HuggingFace cache directory for backward compatibility
+            hf_cache_dir = Path.home() / ".cache" / "huggingface"
+            if hf_cache_dir.exists():
+                # Check for faster-whisper cache directories
+                for item in hf_cache_dir.iterdir():
+                    if item.is_dir() and ("whisper" in item.name.lower() or "openai" in item.name.lower()):
                         try:
-                            logger.info(f"Removing cached hub model: {item}")
+                            logger.debug(f"Removing legacy cached model directory: {item}")
                             shutil.rmtree(item)
                             models_cleared += 1
                         except Exception as e:
-                            logger.warning(f"Failed to remove hub cache {item}: {e}")
+                            logger.warning(f"Failed to remove legacy cache directory {item}: {e}")
+                
+                # Also check hub cache for transformers-style models
+                hub_cache = hf_cache_dir / "hub"
+                if hub_cache.exists():
+                    for item in hub_cache.iterdir():
+                        if item.is_dir() and "whisper" in item.name.lower():
+                            try:
+                                logger.debug(f"Removing legacy cached hub model: {item}")
+                                shutil.rmtree(item)
+                                models_cleared += 1
+                            except Exception as e:
+                                logger.warning(f"Failed to remove legacy hub cache {item}: {e}")
             
             logger.info(f"Cleared {models_cleared} cached model directories")
             return True

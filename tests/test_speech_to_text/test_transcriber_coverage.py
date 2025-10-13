@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from local_ai.speech_to_text.transcriber import WhisperTranscriber
 
 
+@pytest.mark.unit
 class TestWhisperTranscriberCoverage:
     """Test cases to improve coverage of WhisperTranscriber."""
 

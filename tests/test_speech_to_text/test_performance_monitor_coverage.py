@@ -10,6 +10,7 @@ from local_ai.speech_to_text.performance_monitor import (
 )
 
 
+@pytest.mark.unit
 class TestPerformanceMonitorCoverage:
     """Test cases to improve coverage of performance monitoring."""
 

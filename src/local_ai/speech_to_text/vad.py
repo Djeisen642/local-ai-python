@@ -2,10 +2,11 @@
 
 import time
 import logging
+from .logging_utils import get_logger
 from typing import Optional
 import webrtcvad
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from .config import (
     VAD_AGGRESSIVENESS, 
     SHORT_PAUSE_THRESHOLD, 
@@ -91,7 +92,7 @@ class VoiceActivityDetector:
         self._last_debug_log = time.time()
         self._debug_log_interval = 10.0  # Log VAD stats every 10 seconds
         
-        logger.info(f"🔊 VAD initialized: sample_rate={self.sample_rate}Hz, "
+        logger.debug(f"🔊 VAD initialized: sample_rate={self.sample_rate}Hz, "
                    f"frame_duration={self.frame_duration}ms, "
                    f"aggressiveness={aggressiveness}, "
                    f"frame_size={self.frame_size} samples")
@@ -136,7 +137,7 @@ class VoiceActivityDetector:
             current_time = time.time()
             if current_time - self._last_debug_log >= self._debug_log_interval:
                 speech_ratio = (self._speech_detections / self._total_chunks_processed * 100) if self._total_chunks_processed > 0 else 0
-                logger.info(f"🔊 VAD Stats: {self._speech_detections} speech detections in "
+                logger.trace(f"🔊 VAD Stats: {self._speech_detections} speech detections in "
                            f"{self._total_chunks_processed} chunks ({speech_ratio:.1f}% speech)")
                 self._last_debug_log = current_time
             

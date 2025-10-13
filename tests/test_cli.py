@@ -11,6 +11,7 @@ import pytest
 from local_ai.main import SpeechToTextCLI, main
 
 
+@pytest.mark.unit
 class TestSpeechToTextCLI:
     """Test cases for the SpeechToTextCLI class."""
 
@@ -237,6 +238,7 @@ class TestSpeechToTextCLI:
         assert cli._running is False
 
 
+@pytest.mark.unit
 class TestMainFunction:
     """Test cases for the main function and entry point."""
 

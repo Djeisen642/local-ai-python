@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from .logging_utils import get_logger
 import uuid
 from collections import defaultdict
 from typing import Dict, List, Optional, Set
@@ -15,7 +16,7 @@ from .interfaces import (
     ProcessingStage
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PluginProcessingPipeline(ProcessingPipeline):
@@ -52,7 +53,7 @@ class PluginProcessingPipeline(ProcessingPipeline):
                 logger.warning(f"Handler '{name}' already registered for stage '{stage.value}', replacing")
             
             self._handlers[stage][name] = handler
-            logger.info(f"Registered handler '{name}' for stage '{stage.value}'")
+            logger.debug(f"Registered handler '{name}' for stage '{stage.value}'")
             return True
             
         except Exception as e:
@@ -73,7 +74,7 @@ class PluginProcessingPipeline(ProcessingPipeline):
         try:
             if stage in self._handlers and name in self._handlers[stage]:
                 del self._handlers[stage][name]
-                logger.info(f"Unregistered handler '{name}' from stage '{stage.value}'")
+                logger.debug(f"Unregistered handler '{name}' from stage '{stage.value}'")
                 return True
             else:
                 logger.warning(f"Handler '{name}' not found for stage '{stage.value}'")
@@ -133,7 +134,7 @@ class PluginProcessingPipeline(ProcessingPipeline):
                 
                 # Update pipeline statistics
                 self._update_stats(start_time, True)
-                logger.info(f"Successfully processed transcription through {len(results)} handlers")
+                logger.debug(f"Successfully processed transcription through {len(results)} handlers")
                 
             except Exception as e:
                 logger.error(f"Error processing transcription through pipeline: {e}")
@@ -284,7 +285,7 @@ class PluginProcessingPipeline(ProcessingPipeline):
             "average_processing_time": 0.0,
             "last_processed": None
         }
-        logger.info("Pipeline statistics reset")
+        logger.debug("Pipeline statistics reset")
     
     def get_handler_info(self) -> Dict[str, List[str]]:
         """

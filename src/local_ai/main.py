@@ -15,14 +15,15 @@ from .speech_to_text.optimization_cache import get_optimization_cache
 class SpeechToTextCLI:
     """Command-line interface for speech-to-text service."""
 
-    def __init__(self, service: Optional[SpeechToTextService] = None) -> None:
+    def __init__(self, service: Optional[SpeechToTextService] = None, force_cpu: bool = False) -> None:
         """
         Initialize the CLI.
         
         Args:
             service: Optional SpeechToTextService instance. If None, creates a new one.
+            force_cpu: Whether to force CPU-only mode
         """
-        self._service = service or SpeechToTextService()
+        self._service = service or SpeechToTextService(force_cpu=force_cpu)
         self._running = False
         self._transcription_count = 0
 
@@ -107,9 +108,9 @@ class SpeechToTextCLI:
                 await self.stop_listening()
 
 
-async def main() -> None:
+async def main(force_cpu: bool = False) -> None:
     """Main entry point for the CLI application."""
-    cli = SpeechToTextCLI()
+    cli = SpeechToTextCLI(force_cpu=force_cpu)
     try:
         await cli.run()
     except KeyboardInterrupt:
@@ -130,9 +131,11 @@ def create_argument_parser() -> argparse.ArgumentParser:
 Examples:
   python -m local_ai.main                              # Start with default settings
   python -m local_ai.main --verbose                    # Enable verbose logging
+  python -m local_ai.main --trace                      # Enable trace logging (most verbose)
   python -m local_ai.main --reset-model-cache          # Clear model cache and exit
   python -m local_ai.main --reset-optimization-cache   # Clear optimization cache and exit
   python -m local_ai.main -v --reset-model-cache       # Verbose mode with model cache reset
+  python -m local_ai.main --force-cpu                  # Force CPU-only mode (disable GPU)
 
 Controls:
   Ctrl+C    - Stop and exit gracefully
@@ -158,6 +161,18 @@ Make sure your microphone is connected and permissions are granted.
         '--verbose', '-v',
         action='store_true',
         help='Enable verbose logging and debug information'
+    )
+    
+    parser.add_argument(
+        '--trace',
+        action='store_true',
+        help='Enable trace logging (most verbose, includes all debug info)'
+    )
+    
+    parser.add_argument(
+        '--force-cpu',
+        action='store_true',
+        help='Force CPU-only mode, disable GPU/CUDA acceleration'
     )
     
     return parser
@@ -206,8 +221,17 @@ def handle_arguments(args: argparse.Namespace) -> tuple[bool, bool]:
         - success: True if all operations succeeded, False if any failed
         - should_continue: True if execution should continue to main(), False if it should stop
     """
-    # Configure logging based on verbose flag
-    if args.verbose:
+    # Import and setup trace logging
+    from .speech_to_text.logging_utils import add_trace_level, TRACE_LEVEL
+    add_trace_level()
+    
+    # Configure logging based on verbose/trace flags
+    if args.trace:
+        logging.basicConfig(
+            level=TRACE_LEVEL,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+    elif args.verbose:
         logging.basicConfig(
             level='DEBUG',
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -281,7 +305,7 @@ def cli_entry_with_args() -> None:
             sys.exit(0)
         
         # If we get here, proceed with normal execution
-        asyncio.run(main())
+        asyncio.run(main(force_cpu=args.force_cpu))
         
     except KeyboardInterrupt:
         pass  # Graceful shutdown

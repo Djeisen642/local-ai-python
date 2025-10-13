@@ -9,6 +9,7 @@ from local_ai.speech_to_text.transcriber import WhisperTranscriber
 from local_ai.speech_to_text.models import TranscriptionResult
 
 
+@pytest.mark.unit
 class TestAudioFormatConversion:
     """Test cases for audio format conversion functionality."""
     
@@ -121,6 +122,7 @@ class TestAudioFormatConversion:
         assert len(audio_16bit) > 44
 
 
+@pytest.mark.unit
 class TestTranscriptionResultProcessing:
     """Test cases for TranscriptionResult data model and processing."""
     
@@ -290,6 +292,7 @@ class TestTranscriptionResultProcessing:
         assert "TranscriptionResult" in str_repr
 
 
+@pytest.mark.unit
 class TestTextPostProcessing:
     """Test cases for text post-processing and formatting functions."""
     
@@ -426,6 +429,7 @@ class TestTextPostProcessing:
             assert processed == expected or len(processed) > 0
 
 
+@pytest.mark.unit
 class TestAudioProcessingIntegration:
     """Test cases for integrated audio processing functionality."""
     

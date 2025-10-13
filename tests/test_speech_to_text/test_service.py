@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from local_ai.speech_to_text.service import SpeechToTextService
 
 
+@pytest.mark.unit
 class TestSpeechToTextServiceCoordination:
     """Test cases for SpeechToTextService coordination functionality."""
     
@@ -123,6 +124,7 @@ class TestSpeechToTextServiceCoordination:
         assert service.get_latest_transcription() == "Updated transcription"
 
 
+@pytest.mark.unit
 class TestSpeechToTextServiceComponentCoordination:
     """Test cases for component coordination with mocked dependencies."""
     
@@ -237,6 +239,7 @@ class TestSpeechToTextServiceComponentCoordination:
         assert "result3" in callback_results
 
 
+@pytest.mark.unit
 class TestSpeechToTextServiceRealTimePipeline:
     """Test cases for real-time transcription pipeline functionality."""
     
@@ -381,6 +384,7 @@ class TestSpeechToTextServiceRealTimePipeline:
         assert service.get_latest_transcription() == "Valid transcription"
 
 
+@pytest.mark.unit
 class TestSpeechToTextServiceErrorHandling:
     """Test cases for error handling and recovery scenarios."""
     
@@ -520,6 +524,7 @@ class TestSpeechToTextServiceErrorHandling:
             await service.stop_listening()  # Should not raise error even if not started
 
 
+@pytest.mark.unit
 class TestSpeechToTextServiceIntegrationPreparation:
     """Test cases to prepare for integration with real components."""
     

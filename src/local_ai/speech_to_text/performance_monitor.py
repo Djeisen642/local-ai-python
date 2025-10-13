@@ -2,13 +2,14 @@
 
 import time
 import logging
+from .logging_utils import get_logger
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from collections import deque
 
 from .config import PERFORMANCE_HISTORY_SIZE, VAD_SLOW_THRESHOLD
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -258,7 +259,7 @@ class PerformanceMonitor:
         self.metrics_history.clear()
         self.operation_counters.clear()
         self.start_times.clear()
-        logger.info("Performance metrics reset")
+        logger.debug("Performance metrics reset")
 
 
 # Global performance monitor instance

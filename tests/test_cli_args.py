@@ -10,6 +10,7 @@ import pytest
 from local_ai.main import create_argument_parser, handle_arguments
 
 
+@pytest.mark.unit
 class TestArgumentParser:
     """Test cases for CLI argument parsing."""
 
@@ -38,6 +39,8 @@ class TestArgumentParser:
             assert "--reset-model-cache" in help_output
             assert "--reset-optimization-cache" in help_output
             assert "--verbose" in help_output
+            assert "--trace" in help_output
+            assert "--force-cpu" in help_output
 
     def test_short_help_argument(self) -> None:
         """Test -h short form of help argument."""
@@ -89,6 +92,30 @@ class TestArgumentParser:
         args = parser.parse_args([])
         assert args.verbose is False
 
+    def test_trace_argument(self) -> None:
+        """Test --trace argument parsing."""
+        parser = create_argument_parser()
+        
+        # Test with --trace
+        args = parser.parse_args(['--trace'])
+        assert args.trace is True
+        
+        # Test without trace
+        args = parser.parse_args([])
+        assert args.trace is False
+
+    def test_force_cpu_argument(self) -> None:
+        """Test --force-cpu argument parsing."""
+        parser = create_argument_parser()
+        
+        # Test with --force-cpu
+        args = parser.parse_args(['--force-cpu'])
+        assert args.force_cpu is True
+        
+        # Test without force-cpu
+        args = parser.parse_args([])
+        assert args.force_cpu is False
+
     def test_combined_arguments(self) -> None:
         """Test parsing multiple arguments together."""
         parser = create_argument_parser()
@@ -104,6 +131,11 @@ class TestArgumentParser:
         args = parser.parse_args(['--reset-model-cache', '--reset-optimization-cache'])
         assert args.reset_model_cache is True
         assert args.reset_optimization_cache is True
+        
+        args = parser.parse_args(['--verbose', '--trace', '--force-cpu'])
+        assert args.verbose is True
+        assert args.trace is True
+        assert args.force_cpu is True
 
     def test_no_arguments(self) -> None:
         """Test parsing with no arguments (defaults)."""
@@ -113,6 +145,8 @@ class TestArgumentParser:
         assert args.reset_model_cache is False
         assert args.reset_optimization_cache is False
         assert args.verbose is False
+        assert args.trace is False
+        assert args.force_cpu is False
 
     def test_invalid_argument(self) -> None:
         """Test handling of invalid arguments."""
@@ -139,8 +173,11 @@ class TestArgumentParser:
             assert "Clear HuggingFace model cache" in help_output
             assert "Clear system optimization cache" in help_output
             assert "Enable verbose logging" in help_output
+            assert "Enable trace logging" in help_output
+            assert "Force CPU-only mode" in help_output
 
 
+@pytest.mark.unit
 class TestArgumentHandling:
     """Test cases for argument handling functionality."""
 
@@ -148,6 +185,7 @@ class TestArgumentHandling:
         """Test verbose logging setup."""
         args = Mock()
         args.verbose = True
+        args.trace = False
         args.reset_model_cache = False
         args.reset_optimization_cache = False
         
@@ -170,6 +208,7 @@ class TestArgumentHandling:
         """Test normal logging setup."""
         args = Mock()
         args.verbose = False
+        args.trace = False
         args.reset_model_cache = False
         args.reset_optimization_cache = False
         
@@ -182,6 +221,29 @@ class TestArgumentHandling:
         mock_logging.assert_called_once_with(
             level='INFO',
             format='%(asctime)s - %(levelname)s - %(message)s'
+        )
+        mock_reset_model.assert_not_called()
+        mock_reset_opt.assert_not_called()
+        assert success is True
+        assert should_continue is True
+
+    def test_handle_arguments_trace_logging(self) -> None:
+        """Test trace logging setup."""
+        args = Mock()
+        args.verbose = False
+        args.trace = True
+        args.reset_model_cache = False
+        args.reset_optimization_cache = False
+        
+        with patch('logging.basicConfig') as mock_logging:
+            with patch('local_ai.main.reset_model_cache') as mock_reset_model:
+                with patch('local_ai.main.reset_optimization_cache') as mock_reset_opt:
+                    success, should_continue = handle_arguments(args)
+        
+        # Should configure trace logging (level 5)
+        mock_logging.assert_called_once_with(
+            level=5,  # TRACE_LEVEL constant
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         mock_reset_model.assert_not_called()
         mock_reset_opt.assert_not_called()
@@ -294,6 +356,7 @@ class TestArgumentHandling:
         """Test handling combined verbose and cache reset options."""
         args = Mock()
         args.verbose = True
+        args.trace = False
         args.reset_model_cache = True
         args.reset_optimization_cache = False
         
@@ -336,6 +399,7 @@ class TestArgumentHandling:
         assert should_continue is False  # Should not continue after cache reset
 
 
+@pytest.mark.unit
 class TestCacheResetFunctions:
     """Test cases for the cache reset functions."""
 
@@ -399,6 +463,7 @@ class TestCacheResetFunctions:
         assert result is False
 
 
+@pytest.mark.unit
 class TestCLIIntegration:
     """Integration tests for CLI argument parsing."""
 

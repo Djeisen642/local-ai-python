@@ -77,6 +77,7 @@ class MockSlowHandler(ProcessingHandler):
         return True
 
 
+@pytest.mark.unit
 class TestPluginProcessingPipeline:
     """Test cases for PluginProcessingPipeline."""
     
@@ -388,6 +389,7 @@ class TestPluginProcessingPipeline:
         assert stats["last_processed"] is None
 
 
+@pytest.mark.unit
 class TestCreateProcessingContext:
     """Test cases for create_processing_context utility function."""
     

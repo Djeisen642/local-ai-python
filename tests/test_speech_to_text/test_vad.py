@@ -6,6 +6,7 @@ from local_ai.speech_to_text.vad import VoiceActivityDetector
 from local_ai.speech_to_text.config import VAD_FRAME_DURATION, VAD_AGGRESSIVENESS
 
 
+@pytest.mark.unit
 class TestVoiceActivityDetector:
     """Test cases for VoiceActivityDetector class."""
     
@@ -136,6 +137,7 @@ class TestVoiceActivityDetector:
         assert vad2.frame_size == expected_frame_size2
 
 
+@pytest.mark.unit
 class TestNaturalBreakDetection:
     """Test cases for natural break detection functionality."""
     

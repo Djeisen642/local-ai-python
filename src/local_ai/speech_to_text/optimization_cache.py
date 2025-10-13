@@ -2,6 +2,7 @@
 
 import json
 import logging
+from .logging_utils import get_logger
 import os
 import time
 from pathlib import Path
@@ -9,8 +10,9 @@ from typing import Dict, Any, Optional
 import hashlib
 
 from .config import OPTIMIZATION_CACHE_SIZE
+from .cache_utils import get_optimization_cache_dir
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class OptimizationCache:
@@ -24,7 +26,7 @@ class OptimizationCache:
             cache_dir: Directory to store cache files (default: ~/.cache/local_ai)
         """
         if cache_dir is None:
-            cache_dir = Path.home() / ".cache" / "local_ai" / "speech_to_text"
+            cache_dir = get_optimization_cache_dir()
         
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -88,10 +90,10 @@ class OptimizationCache:
             # Validate fingerprint
             current_fingerprint = self._get_system_fingerprint()
             if cached_data.get("fingerprint") != current_fingerprint:
-                logger.info("System fingerprint changed, invalidating cache")
+                logger.debug("System fingerprint changed, invalidating cache")
                 return None
             
-            logger.info("Using cached system capabilities")
+            logger.debug("Using cached system capabilities")
             return cached_data.get("capabilities")
             
         except (json.JSONDecodeError, KeyError, OSError) as e:
@@ -110,7 +112,7 @@ class OptimizationCache:
             with open(self.system_cache_file, 'w') as f:
                 json.dump(cache_data, f, indent=2)
             
-            logger.info("Cached system capabilities")
+            logger.debug("Cached system capabilities")
             
         except OSError as e:
             logger.warning(f"Failed to cache system capabilities: {e}")
@@ -129,7 +131,7 @@ class OptimizationCache:
             cache_key = f"{fingerprint}_{optimization_target}"
             
             if cache_key in cached_configs:
-                logger.info(f"Using cached config for {optimization_target}")
+                logger.debug(f"Using cached config for {optimization_target}")
                 return cached_configs[cache_key]["config"]
             
             return None
@@ -170,7 +172,7 @@ class OptimizationCache:
             with open(self.config_cache_file, 'w') as f:
                 json.dump(cached_configs, f, indent=2)
             
-            logger.info(f"Cached config for {optimization_target}")
+            logger.debug(f"Cached config for {optimization_target}")
             
         except OSError as e:
             logger.warning(f"Failed to cache config: {e}")
@@ -192,7 +194,7 @@ class OptimizationCache:
         try:
             with open(self.performance_cache_file, 'w') as f:
                 json.dump(history, f, indent=2)
-            logger.info("Cached performance history")
+            logger.debug("Cached performance history")
         except OSError as e:
             logger.warning(f"Failed to cache performance history: {e}")
     
@@ -216,7 +218,7 @@ class OptimizationCache:
             try:
                 if cache_file.exists():
                     cache_file.unlink()
-                    logger.info(f"Cleared cache: {cache_file.name}")
+                    logger.debug(f"Cleared cache: {cache_file.name}")
             except OSError as e:
                 logger.warning(f"Failed to clear cache {cache_file.name}: {e}")
     

@@ -13,6 +13,7 @@ from .optimization import (
     get_cache_info
 )
 from .optimization_cache import get_optimization_cache
+from .cache_utils import get_whisper_cache_dir, get_cache_size, format_cache_size, clear_models_cache
 from .config import BYTES_PER_KB
 
 
@@ -70,6 +71,28 @@ def cmd_info(args: argparse.Namespace) -> None:
         
         except Exception as e:
             print(f"\nError getting cache info: {e}")
+        
+        # Show models cache info
+        try:
+            whisper_cache_dir = get_whisper_cache_dir()
+            whisper_cache_size = get_cache_size(whisper_cache_dir)
+            
+            print(f"\nModels Cache:")
+            print(f"  Whisper Models Directory: {whisper_cache_dir}")
+            if whisper_cache_size > 0:
+                print(f"  Whisper Models Size: {format_cache_size(whisper_cache_size)}")
+                
+                # Count model files
+                model_count = 0
+                if whisper_cache_dir.exists():
+                    model_count = len([f for f in whisper_cache_dir.rglob('*') if f.is_file()])
+                print(f"  Whisper Model Files: {model_count}")
+            else:
+                print(f"  Whisper Models: No models cached")
+                
+        except Exception as e:
+            print(f"\nError getting models cache info: {e}")
+            
     else:
         print("\nCache: Disabled")
 
@@ -148,14 +171,22 @@ def cmd_benchmark(args: argparse.Namespace) -> None:
 
 
 def cmd_clear_cache(args: argparse.Namespace) -> None:
-    """Clear optimization cache."""
+    """Clear optimization or models cache."""
     cache_type = args.type
     
     print(f"Clearing {cache_type} cache...")
     
     try:
-        clear_optimization_cache(cache_type)
-        print(f"Successfully cleared {cache_type} cache")
+        if cache_type == "models":
+            success = clear_models_cache()
+            if success:
+                print(f"Successfully cleared {cache_type} cache")
+            else:
+                print(f"Failed to clear {cache_type} cache")
+                sys.exit(1)
+        else:
+            clear_optimization_cache(cache_type)
+            print(f"Successfully cleared {cache_type} cache")
     
     except Exception as e:
         print(f"Error clearing cache: {e}")
@@ -215,6 +246,9 @@ Examples:
   # Clear all cache and regenerate
   python -m local_ai.speech_to_text.cli_optimization clear-cache --type all
   
+  # Clear only models cache
+  python -m local_ai.speech_to_text.cli_optimization clear-cache --type models
+  
   # Run benchmark without cache
   python -m local_ai.speech_to_text.cli_optimization benchmark --no-cache
   
@@ -256,7 +290,7 @@ Examples:
     clear_parser = subparsers.add_parser("clear-cache", help="Clear optimization cache")
     clear_parser.add_argument(
         "--type",
-        choices=["system", "config", "performance", "all"],
+        choices=["system", "config", "performance", "models", "all"],
         default="all",
         help="Type of cache to clear (default: all)"
     )

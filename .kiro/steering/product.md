@@ -1,0 +1,23 @@
+# Product Overview
+
+Local AI is a privacy-focused AI application that provides AI capabilities without requiring internet connectivity. The primary focus is on speech-to-text functionality using OpenAI's Whisper model running locally.
+
+## Core Features
+
+- **Real-time speech transcription** - Convert voice to text with local processing
+- **Voice activity detection** - Automatically detects when speech is present
+- **GPU acceleration** - Automatic GPU detection with CPU fallback
+- **Privacy-first** - All processing happens locally, no data leaves the machine
+- **Linux optimized** - Designed for Linux environments with headless support
+
+## Planned Features
+
+- Text-to-speech synthesis
+- Email notification intelligence
+- Calendar event prioritization
+- Adaptive learning and personalization
+- Smart home device integration
+
+## Architecture Philosophy
+
+The system is built with extensibility in mind, using abstract interfaces and plugin-style architecture to enable future AI assistant workflows including embedding generation, response generation, and text-to-speech capabilities.
