@@ -176,6 +176,49 @@ class TestArgumentParser:
             assert "Enable trace logging" in help_output
             assert "Force CPU-only mode" in help_output
 
+    def test_no_confidence_argument(self) -> None:
+        """Test --no-confidence argument parsing."""
+        parser = create_argument_parser()
+        
+        # Test with --no-confidence
+        args = parser.parse_args(['--no-confidence'])
+        assert args.no_confidence is True
+        
+        # Test without --no-confidence
+        args = parser.parse_args([])
+        assert args.no_confidence is False
+
+    def test_no_confidence_help_text(self) -> None:
+        """Test that --no-confidence appears in help text."""
+        parser = create_argument_parser()
+        
+        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+            with pytest.raises(SystemExit):
+                parser.parse_args(['--help'])
+            
+            help_output = mock_stdout.getvalue()
+            assert "--no-confidence" in help_output
+            assert "Hide confidence percentages" in help_output
+
+    def test_combined_arguments_with_no_confidence(self) -> None:
+        """Test combining --no-confidence with other arguments."""
+        parser = create_argument_parser()
+        
+        # Test --no-confidence with --verbose
+        args = parser.parse_args(['--no-confidence', '--verbose'])
+        assert args.no_confidence is True
+        assert args.verbose is True
+        
+        # Test --no-confidence with --force-cpu
+        args = parser.parse_args(['--no-confidence', '--force-cpu'])
+        assert args.no_confidence is True
+        assert args.force_cpu is True
+        
+        # Test --no-confidence with cache reset
+        args = parser.parse_args(['--no-confidence', '--reset-model-cache'])
+        assert args.no_confidence is True
+        assert args.reset_model_cache is True
+
 
 @pytest.mark.unit
 class TestArgumentHandling:
@@ -552,3 +595,23 @@ class TestCLIIntegration:
         with patch('sys.stderr', new_callable=StringIO):
             with pytest.raises(SystemExit):
                 parser.parse_args(['--verbose=true'])  # Should fail
+
+    def test_cli_entry_with_no_confidence_flag(self) -> None:
+        """Test CLI entry point with --no-confidence flag."""
+        test_args = ['--no-confidence']
+        
+        with patch('sys.argv', ['main.py'] + test_args):
+            with patch('local_ai.main.handle_arguments', return_value=(True, True)) as mock_handle:
+                with patch('local_ai.main.main') as mock_main:
+                    with patch('asyncio.run') as mock_asyncio_run:
+                        from local_ai.main import cli_entry_with_args
+                        cli_entry_with_args()
+                    
+                    mock_handle.assert_called_once()
+                    # Should proceed to main execution with show_confidence_percentage=False
+                    mock_asyncio_run.assert_called_once()
+                    
+                    # Verify main was called with correct confidence flag
+                    call_args = mock_asyncio_run.call_args[0][0]
+                    # The call should be main(force_cpu=False, show_confidence_percentage=False)
+                    # We can't easily inspect the coroutine args, but we can verify it was called

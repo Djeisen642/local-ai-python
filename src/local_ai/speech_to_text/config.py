@@ -55,6 +55,10 @@ HIGH_MEMORY_GB = 8                  # GB
 HIGH_GPU_MEMORY_GB = 6              # GB
 ULTRA_GPU_MEMORY_GB = 10            # GB
 
+# Confidence Rating Configuration
+CONFIDENCE_LOGPROB_MIN = -2.0  # Minimum expected avg_logprob value
+CONFIDENCE_LOGPROB_MAX = -0.1  # Maximum expected avg_logprob value
+
 # File and Data Limits
 MAX_AUDIO_FILE_SIZE = 100 * 1024 * 1024  # 100MB
 PERFORMANCE_HISTORY_SIZE = 10       # number of recent measurements to keep

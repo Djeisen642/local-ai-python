@@ -21,3 +21,24 @@ Local AI is a privacy-focused AI application that provides AI capabilities witho
 ## Architecture Philosophy
 
 The system is built with extensibility in mind, using abstract interfaces and plugin-style architecture to enable future AI assistant workflows including embedding generation, response generation, and text-to-speech capabilities.
+
+## Development Philosophy
+
+### Greenfield Project Approach
+
+This is a greenfield project in active development. **Do not worry about backwards compatibility** when making improvements or changes to:
+
+- API interfaces and method signatures
+- Data models and class structures
+- Configuration formats and constants
+- CLI arguments and options
+- File formats and storage schemas
+
+**Prioritize:**
+
+- Clean, well-designed interfaces
+- Optimal performance and user experience
+- Code maintainability and clarity
+- Modern best practices
+
+**Breaking changes are acceptable** as we iterate toward the best possible design. Focus on building the right solution rather than maintaining compatibility with earlier iterations.

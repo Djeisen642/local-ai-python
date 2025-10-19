@@ -15,6 +15,7 @@ from .performance_monitor import get_performance_monitor, PerformanceContext
 from .config import ERROR_RECOVERY_SLEEP, DEFAULT_SAMPLE_RATE
 from .pipeline import PluginProcessingPipeline, create_processing_context
 from .interfaces import ProcessingHandler, ProcessingResult
+from .models import TranscriptionResult
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,9 @@ class SpeechToTextService:
         """
         self._listening = False
         self._transcription_callback: Callable[[str], None] | None = None
+        self._transcription_result_callback: Callable[["TranscriptionResult"], None] | None = None
         self._latest_transcription: str | None = None
+        self._latest_transcription_result: Optional["TranscriptionResult"] = None
         
         # Initialize components
         self._audio_capture: Optional[AudioCapture] = None
@@ -190,6 +193,15 @@ class SpeechToTextService:
         """
         return self._latest_transcription
 
+    def get_latest_transcription_result(self) -> Optional[TranscriptionResult]:
+        """
+        Get the most recent transcription result with confidence information.
+
+        Returns:
+            Latest TranscriptionResult or None if no transcription available
+        """
+        return self._latest_transcription_result
+
     def set_transcription_callback(self, callback: Callable[[str], None]) -> None:
         """
         Set callback function for real-time transcription updates.
@@ -198,6 +210,15 @@ class SpeechToTextService:
             callback: Function to call with transcription results
         """
         self._transcription_callback = callback
+
+    def set_transcription_result_callback(self, callback: Callable[[TranscriptionResult], None]) -> None:
+        """
+        Set callback function for real-time transcription result updates with confidence information.
+
+        Args:
+            callback: Function to call with TranscriptionResult objects
+        """
+        self._transcription_result_callback = callback
     
     def set_pipeline_callback(self, callback: Callable[[list[ProcessingResult]], None]) -> None:
         """
@@ -282,6 +303,38 @@ class SpeechToTextService:
         # Trigger pipeline processing for future systems
         if transcription_metadata:
             asyncio.create_task(self._trigger_pipeline_processing(text, transcription_metadata))
+
+    def _update_transcription_with_result(self, transcription_result: TranscriptionResult, transcription_metadata: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Update the latest transcription with full result information and notify callbacks.
+        
+        Args:
+            transcription_result: TranscriptionResult object with confidence information
+            transcription_metadata: Optional metadata about the transcription
+        """
+        if not transcription_result.text or not transcription_result.text.strip():
+            return
+        
+        self._latest_transcription = transcription_result.text
+        self._latest_transcription_result = transcription_result
+        
+        # Call text-only transcription callback if set (for backward compatibility)
+        if self._transcription_callback:
+            try:
+                self._transcription_callback(transcription_result.text)
+            except Exception as e:
+                logger.error(f"Error in transcription callback: {e}")
+        
+        # Call transcription result callback if set (with confidence information)
+        if self._transcription_result_callback:
+            try:
+                self._transcription_result_callback(transcription_result)
+            except Exception as e:
+                logger.error(f"Error in transcription result callback: {e}")
+        
+        # Trigger pipeline processing for future systems
+        if transcription_metadata:
+            asyncio.create_task(self._trigger_pipeline_processing(transcription_result.text, transcription_metadata))
     
     async def _trigger_pipeline_processing(self, text: str, metadata: Dict[str, Any]) -> None:
         """
@@ -520,24 +573,21 @@ class SpeechToTextService:
             logger.trace(f"Processing speech segment of {len(combined_audio)} bytes")
             
             # Transcribe the audio segment with optional performance monitoring
-            transcription_start_time = time.time()
             if self._monitoring_enabled:
                 with PerformanceContext("transcription", metadata={"audio_size": len(combined_audio), "chunk_count": len(speech_chunks)}) as ctx:
-                    transcription = await self._transcriber.transcribe_audio(combined_audio)
-                    ctx.set_metadata("transcription_length", len(transcription) if transcription else 0)
+                    transcription_result = await self._transcriber.transcribe_audio_with_result(combined_audio)
+                    ctx.set_metadata("transcription_length", len(transcription_result.text) if transcription_result.text else 0)
             else:
-                transcription = await self._transcriber.transcribe_audio(combined_audio)
+                transcription_result = await self._transcriber.transcribe_audio_with_result(combined_audio)
             
-            transcription_time = time.time() - transcription_start_time
-            
-            if transcription and transcription.strip():
-                logger.debug(f"Transcription result: {transcription}")
+            if transcription_result and transcription_result.text and transcription_result.text.strip():
+                logger.debug(f"Transcription result: {transcription_result.text} (confidence: {transcription_result.confidence:.2f})")
                 
                 # Create metadata for pipeline processing
                 transcription_metadata = {
-                    "confidence": 0.8,  # Default confidence, could be enhanced with actual Whisper confidence
-                    "timestamp": time.time(),
-                    "processing_time": transcription_time,
+                    "confidence": transcription_result.confidence,
+                    "timestamp": transcription_result.timestamp,
+                    "processing_time": transcription_result.processing_time,
                     "audio_duration": len(combined_audio) / (sample_rate * 2),  # bytes to seconds (16-bit audio)
                     "sample_rate": sample_rate,
                     "chunk_count": len(speech_chunks),
@@ -550,7 +600,7 @@ class SpeechToTextService:
                     }
                 }
                 
-                self._update_transcription(transcription, transcription_metadata)
+                self._update_transcription_with_result(transcription_result, transcription_metadata)
             else:
                 logger.trace("Empty transcription result")
                 

@@ -15,7 +15,9 @@ from .config import (
     DEFAULT_SAMPLE_RATE,
     MAX_AUDIO_FILE_SIZE,
     SILENCE_DURATION,
-    BYTES_PER_KB
+    BYTES_PER_KB,
+    CONFIDENCE_LOGPROB_MIN,
+    CONFIDENCE_LOGPROB_MAX
 )
 
 # Import faster_whisper at module level for proper mocking in tests
@@ -209,6 +211,46 @@ class WhisperTranscriber:
             wav_file.writeframes(samples.tobytes())
         
         return buffer.getvalue()
+
+    def _calculate_confidence(self, segments: list) -> float:
+        """
+        Convert faster-whisper avg_logprob to normalized confidence score (0.0-1.0).
+
+        avg_logprob typically ranges from -2.0 (low confidence) to -0.1 (high confidence)
+        We normalize this to a 0.0-1.0 scale for user-friendly display.
+
+        Args:
+            segments: List of transcription segments from faster-whisper
+
+        Returns:
+            Confidence score between 0.0 and 1.0
+        """
+        if not segments:
+            return 0.0
+
+        # Calculate weighted average of segment confidences
+        total_duration = 0.0
+        weighted_logprob = 0.0
+        
+        for segment in segments:
+            if hasattr(segment, 'avg_logprob') and hasattr(segment, 'start') and hasattr(segment, 'end'):
+                duration = segment.end - segment.start
+                total_duration += duration
+                weighted_logprob += segment.avg_logprob * duration
+
+        if total_duration == 0:
+            return 0.0
+
+        avg_logprob = weighted_logprob / total_duration
+
+        # Convert log probability to confidence (0.0-1.0)
+        # Typical range: avg_logprob from -2.0 to -0.1
+        # We need to normalize this range to 0.0-1.0 where higher logprob = higher confidence
+        confidence = max(0.0, min(1.0, (avg_logprob - CONFIDENCE_LOGPROB_MIN) / (CONFIDENCE_LOGPROB_MAX - CONFIDENCE_LOGPROB_MIN)))
+
+        return confidence
+
+
     
     def _post_process_text(self, text: str) -> str:
         """
@@ -420,24 +462,17 @@ class WhisperTranscriber:
                         temp_file.name
                     )
                     
-                    # Collect all text segments and calculate average confidence
+                    # Collect all text segments and calculate confidence
                     transcribed_text = ""
-                    total_confidence = 0.0
-                    segment_count = 0
+                    segments_list = list(segments)
                     
-                    for segment in segments:
+                    for segment in segments_list:
                         transcribed_text += segment.text
-                        # Try to get confidence if available
-                        if hasattr(segment, 'avg_logprob'):
-                            # Convert log probability to confidence (approximate)
-                            confidence = min(1.0, max(0.0, (segment.avg_logprob + 1.0)))
-                            total_confidence += confidence
-                            segment_count += 1
                     
-                    # Calculate average confidence
-                    avg_confidence = total_confidence / segment_count if segment_count > 0 else 0.0
+                    # Calculate confidence using proper method
+                    confidence = self._calculate_confidence(segments_list)
                     
-                    return self.create_transcription_result(transcribed_text, processing_start_time, avg_confidence)
+                    return self.create_transcription_result(transcribed_text, processing_start_time, confidence)
                     
                 finally:
                     # Clean up temp file

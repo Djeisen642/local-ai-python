@@ -23,6 +23,8 @@ class TestWhisperTranscriberWithResult:
         mock_segment = MagicMock()
         mock_segment.text = "Hello world"
         mock_segment.avg_logprob = -0.5  # Mock confidence score
+        mock_segment.start = 0.0  # Add timing info for confidence calculation
+        mock_segment.end = 2.0
         
         mock_model.transcribe.return_value = ([mock_segment], {})
         
@@ -140,10 +142,14 @@ class TestWhisperTranscriberWithResult:
         mock_segment1 = MagicMock()
         mock_segment1.text = "Hello "
         mock_segment1.avg_logprob = -0.3
+        mock_segment1.start = 0.0  # Add timing info for confidence calculation
+        mock_segment1.end = 1.0
         
         mock_segment2 = MagicMock()
         mock_segment2.text = "world"
         mock_segment2.avg_logprob = -0.7
+        mock_segment2.start = 1.0  # Add timing info for confidence calculation
+        mock_segment2.end = 2.0
         
         mock_model.transcribe.return_value = ([mock_segment1, mock_segment2], {})
         

@@ -10,30 +10,34 @@ from typing import Optional
 from .speech_to_text.service import SpeechToTextService
 from .speech_to_text.transcriber import WhisperTranscriber
 from .speech_to_text.optimization_cache import get_optimization_cache
+from .speech_to_text.models import TranscriptionResult
 
 
 class SpeechToTextCLI:
     """Command-line interface for speech-to-text service."""
 
-    def __init__(self, service: Optional[SpeechToTextService] = None, force_cpu: bool = False) -> None:
+    def __init__(self, service: Optional[SpeechToTextService] = None, force_cpu: bool = False, show_confidence_percentage: bool = True) -> None:
         """
         Initialize the CLI.
         
         Args:
             service: Optional SpeechToTextService instance. If None, creates a new one.
             force_cpu: Whether to force CPU-only mode
+            show_confidence_percentage: Whether to show confidence percentages in output
         """
         self._service = service or SpeechToTextService(force_cpu=force_cpu)
         self._running = False
         self._transcription_count = 0
+        self._show_confidence_percentage = show_confidence_percentage
+        self._latest_transcription_result: Optional[TranscriptionResult] = None
 
     async def start_listening(self) -> None:
         """Start the speech-to-text listening service."""
         try:
             print("🎤 Starting speech-to-text service...")
             
-            # Set up transcription callback
-            self._service.set_transcription_callback(self._on_transcription)
+            # Set up transcription callback (only use the confidence-based one to avoid double printing)
+            self._service.set_transcription_result_callback(self._on_transcription_result)
             
             # Start the service
             await self._service.start_listening()
@@ -57,7 +61,7 @@ class SpeechToTextCLI:
 
     def _on_transcription(self, text: str) -> None:
         """
-        Handle transcription results from the service.
+        Handle transcription results from the service (backward compatibility).
         
         Args:
             text: Transcribed text
@@ -67,6 +71,29 @@ class SpeechToTextCLI:
             
         self._transcription_count += 1
         print(f"📝 [{self._transcription_count}] {text}")
+
+    def _on_transcription_result(self, result: TranscriptionResult) -> None:
+        """
+        Handle transcription results with confidence information from the service.
+        
+        Args:
+            result: TranscriptionResult with confidence information
+        """
+        if not result.text or not result.text.strip():
+            return
+            
+        self._transcription_count += 1
+        
+        # Store the latest result for downstream systems
+        self._latest_transcription_result = result
+        
+        # Format the main transcription display with confidence percentage
+        if self._show_confidence_percentage:
+            confidence_display = f" ({result.confidence:.0%})"
+        else:
+            confidence_display = ""
+        
+        print(f"[{self._transcription_count}] {result.text}{confidence_display}")
 
     def display_status(self) -> None:
         """Display current service status."""
@@ -108,9 +135,9 @@ class SpeechToTextCLI:
                 await self.stop_listening()
 
 
-async def main(force_cpu: bool = False) -> None:
+async def main(force_cpu: bool = False, show_confidence_percentage: bool = True) -> None:
     """Main entry point for the CLI application."""
-    cli = SpeechToTextCLI(force_cpu=force_cpu)
+    cli = SpeechToTextCLI(force_cpu=force_cpu, show_confidence_percentage=show_confidence_percentage)
     try:
         await cli.run()
     except KeyboardInterrupt:
@@ -129,7 +156,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m local_ai.main                              # Start with default settings
+  python -m local_ai.main                              # Start with default settings (shows confidence %)
+  python -m local_ai.main --no-confidence              # Hide confidence percentages
   python -m local_ai.main --verbose                    # Enable verbose logging
   python -m local_ai.main --trace                      # Enable trace logging (most verbose)
   python -m local_ai.main --reset-model-cache          # Clear model cache and exit
@@ -173,6 +201,12 @@ Make sure your microphone is connected and permissions are granted.
         '--force-cpu',
         action='store_true',
         help='Force CPU-only mode, disable GPU/CUDA acceleration'
+    )
+    
+    parser.add_argument(
+        '--no-confidence',
+        action='store_true',
+        help='Hide confidence percentages in transcription output'
     )
     
     return parser
@@ -311,7 +345,8 @@ def cli_entry_with_args() -> None:
             sys.exit(0)
         
         # If we get here, proceed with normal execution
-        asyncio.run(main(force_cpu=args.force_cpu))
+        show_confidence = not args.no_confidence  # Invert the flag since --no-confidence hides it
+        asyncio.run(main(force_cpu=args.force_cpu, show_confidence_percentage=show_confidence))
         
     except KeyboardInterrupt:
         pass  # Graceful shutdown

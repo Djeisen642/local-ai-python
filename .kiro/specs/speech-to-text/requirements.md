@@ -85,6 +85,17 @@ This feature enables the local AI application to convert real-time streaming spe
 
 ### Requirement 8
 
+**User Story:** As a user, I want to receive confidence ratings with my transcriptions, so that I can understand the system's certainty about the transcription accuracy.
+
+#### Acceptance Criteria
+
+1. WHEN speech is transcribed THEN the system SHALL provide a confidence score between 0.0 and 1.0 for each transcription result
+2. WHEN displaying transcription results THEN the system SHALL show confidence scores as percentages alongside the transcribed text
+3. WHEN transcription results are generated THEN the confidence score SHALL be calculated from the speech recognition model's internal confidence metrics
+4. WHEN confidence data is available THEN it SHALL be included in all transcription results passed to downstream systems
+
+### Requirement 9
+
 **User Story:** As a developer, I want the speech-to-text system to be extensible for future AI pipeline integration, so that transcription results can trigger downstream processing for embeddings, response generation, and text-to-speech.
 
 #### Acceptance Criteria

@@ -41,6 +41,20 @@ class TestTranscriptionResult:
         assert result.timestamp == 1234567890.0
         assert result.processing_time == 0.5
 
+    def test_transcription_result_with_confidence_fields(self) -> None:
+        """Test TranscriptionResult can be created with confidence fields."""
+        result = TranscriptionResult(
+            text="Unclear speech",
+            confidence=0.3,
+            timestamp=1234567890.0,
+            processing_time=1.2
+        )
+        
+        assert result.text == "Unclear speech"
+        assert result.confidence == 0.3
+        assert result.timestamp == 1234567890.0
+        assert result.processing_time == 1.2
+
 
 @pytest.mark.unit
 class TestSpeechSegment:

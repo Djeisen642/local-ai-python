@@ -95,6 +95,7 @@ class WhisperTranscriber:
     def is_model_available(self) -> bool
     def get_model_info(self) -> Dict[str, Any]
     def clear_model_cache(self) -> bool  # Clears HuggingFace cache
+    def _calculate_confidence(self, segments: List[Segment]) -> float  # Convert avg_logprob to confidence
 ```
 
 **Key Features:**
@@ -105,6 +106,7 @@ class WhisperTranscriber:
 - Performance optimization through compute_type and compression detection
 - Cache management with reset capability
 - Audio format conversion for Ollama compatibility
+- **Confidence calculation from faster-whisper avg_logprob values**
 
 ### 4. SpeechToTextService Class
 
@@ -147,7 +149,7 @@ class AudioChunk:
 @dataclass
 class TranscriptionResult:
     text: str
-    confidence: float
+    confidence: float  # 0.0 to 1.0, derived from faster-whisper avg_logprob
     timestamp: float
     processing_time: float
 ```
@@ -277,6 +279,62 @@ _Optimization Cache (System):_
 - Includes system fingerprinting for cache validation
 - Reset with `--reset-optimization-cache` after system changes
 
+## Confidence Rating Implementation
+
+### Confidence Calculation Strategy
+
+The system leverages faster-whisper's built-in confidence metrics to provide meaningful confidence ratings:
+
+**Source Data from faster-whisper:**
+
+- `avg_logprob`: Average log probability across all tokens in the transcription
+- `no_speech_prob`: Probability that the audio contains no speech
+- `compression_ratio`: Ratio indicating potential repetitive or nonsensical output
+
+**Confidence Calculation:**
+
+```python
+def _calculate_confidence(self, segments: List[Segment]) -> float:
+    """
+    Convert faster-whisper avg_logprob to normalized confidence score (0.0-1.0)
+
+    avg_logprob typically ranges from -2.0 (low confidence) to -0.1 (high confidence)
+    We normalize this to a 0.0-1.0 scale for user-friendly display
+    """
+    if not segments:
+        return 0.0
+
+    # Calculate weighted average of segment confidences
+    total_duration = sum(segment.end - segment.start for segment in segments)
+    if total_duration == 0:
+        return 0.0
+
+    weighted_logprob = sum(
+        segment.avg_logprob * (segment.end - segment.start)
+        for segment in segments
+    ) / total_duration
+
+    # Convert log probability to confidence (0.0-1.0)
+    # Typical range: avg_logprob from -2.0 to -0.1
+    confidence = max(0.0, min(1.0, (weighted_logprob + 2.0) / 1.9))
+
+    return confidence
+```
+
+### Confidence Display and Integration
+
+The system displays confidence information and passes it to downstream systems:
+
+**CLI Display Format:**
+
+- "Transcribed text here (confidence: 85%)"
+- "Another transcription (confidence: 42%)"
+
+**Downstream Integration:**
+
+- Full `TranscriptionResult` objects with confidence scores passed to callback handlers
+- Downstream systems can use confidence values for their own decision-making
+
 ## Configuration Constants
 
 ```python
@@ -302,6 +360,10 @@ TEMPERATURE = 0.0  # Deterministic output (0.0) vs creative (1.0)
 COMPRESSION_RATIO_THRESHOLD = 2.4  # Detect repetitive transcriptions
 LOGPROB_THRESHOLD = -1.0  # Filter low-confidence results
 NO_SPEECH_THRESHOLD = 0.6  # Threshold for detecting silence
+
+# Confidence Rating Configuration
+CONFIDENCE_LOGPROB_MIN = -2.0  # Minimum expected avg_logprob value for normalization
+CONFIDENCE_LOGPROB_MAX = -0.1  # Maximum expected avg_logprob value for normalization
 
 # Buffer and Processing
 MAX_AUDIO_BUFFER_SIZE = 10  # seconds of audio

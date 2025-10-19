@@ -81,6 +81,20 @@
   - Implement transcription result processing and formatting
   - _Requirements: 2.1, 1.2, 4.3_
 
+- [x] 4.5 Add confidence rating functionality to WhisperTranscriber
+
+  - Write tests for confidence calculation from faster-whisper avg_logprob values
+  - Test TranscriptionResult model with confidence field
+  - Test confidence score normalization to 0.0-1.0 range
+  - _Requirements: 8.1, 8.2_
+
+- [x] 4.6 Implement confidence calculation
+
+  - Implement \_calculate_confidence method to convert avg_logprob to 0.0-1.0 scale
+  - Update TranscriptionResult creation to include confidence score
+  - Add confidence normalization constants to config.py (CONFIDENCE_LOGPROB_MIN/MAX)
+  - _Requirements: 8.1, 8.2_
+
 - [x] 5. TDD: Main speech-to-text service orchestrator
 - [x] 5.1 Write tests for SpeechToTextService coordination
 
@@ -125,6 +139,21 @@
   - Implement graceful shutdown handling (Ctrl+C)
   - _Requirements: 1.1, 3.1, 3.3_
 
+- [x] 6.4 Add confidence rating display to CLI interface
+
+  - Write tests for confidence percentage display in CLI output
+  - Test confidence score formatting and display alongside transcription text
+  - Test callback mechanism passing confidence data to downstream systems
+  - _Requirements: 8.4, 9.3_
+
+- [x] 6.5 Implement confidence display and downstream integration
+
+  - Add confidence percentage display to transcription output
+  - Ensure TranscriptionResult with confidence data is passed to callback handlers
+  - Display confidence score alongside transcribed text in CLI
+  - Update callback mechanism to include full confidence metadata for downstream systems
+  - _Requirements: 8.4, 9.3_
+
 - [x] 6.3 Add essential CLI argument parsing and help functionality
 
   - Write tests for command-line argument parsing using argparse
@@ -142,6 +171,13 @@
   - Test performance and latency requirements
   - Test error scenarios and user feedback
   - _Requirements: 4.3, 1.2, 2.1, 1.4, 2.3, 4.4_
+
+- [ ] 7.4 Add confidence rating integration tests
+
+  - Write integration tests for confidence calculation with real audio samples
+  - Test confidence score accuracy with various audio quality levels
+  - Test confidence data flow to downstream systems through callbacks
+  - _Requirements: 8.1, 8.2, 8.4, 9.3_
 
 - [x] 7.2 Optimize and finalize implementation
 
