@@ -1,37 +1,41 @@
 # Local AI
 
-A local AI application that provides privacy-focused AI capabilities without requiring internet connectivity.
+A privacy-focused AI application that provides AI capabilities without requiring internet connectivity. The primary focus is on speech-to-text functionality using OpenAI's Whisper model running locally.
 
-## Features
+## Core Features
 
-### 🎤 Speech-to-Text (Available)
+### 🎤 Real-time Speech Transcription
 
-Real-time speech recognition using OpenAI's Whisper model running locally. Convert your voice to text with:
+Convert voice to text with local processing using OpenAI's Whisper model:
 
 - **Real-time transcription** - See your words appear as you speak
-- **Local processing** - Your voice data never leaves your machine
-- **Voice activity detection** - Automatically detects when you're speaking
-- **Linux support** - Optimized for Linux environments
+- **Voice activity detection** - Automatically detects when speech is present
 - **GPU acceleration** - Automatic GPU detection with CPU fallback
+- **Privacy-first** - All processing happens locally, no data leaves the machine
+- **Linux optimized** - Designed for Linux environments with headless support
 
 ### 🔮 Planned Features
 
-- Text to speech
+- Text-to-speech synthesis
 - Email notification intelligence
 - Calendar event prioritization
 - Adaptive learning and personalization
 - Smart home device integration
 
+## Architecture Philosophy
+
+The system is built with extensibility in mind, using abstract interfaces and plugin-style architecture to enable future AI assistant workflows including embedding generation, response generation, and text-to-speech capabilities.
+
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.13 or higher
-- [uv](https://docs.astral.sh/uv/) package manager
+- **Python 3.13+** (strict requirement)
+- **uv** (modern Python package manager)
 - Microphone access
 - (Optional) NVIDIA GPU with CUDA for faster processing
 
-**Install uv first:**
+**Install uv package manager:**
 
 ```bash
 # Linux/macOS
@@ -92,8 +96,21 @@ python -m local_ai.main
 🎤 Starting speech-to-text service...
 ✅ Listening for speech. Speak into your microphone!
    Press Ctrl+C to stop.
-📝 [1] Hello, this is a test of the speech recognition system.
-📝 [2] It works pretty well with local AI models.
+📝 [1] Hello, this is a test of the speech recognition system. (87%)
+📝 [2] It works pretty well with local AI models. (92%)
+```
+
+**CLI Options:**
+
+```bash
+# Hide confidence percentages
+local-ai --no-confidence
+
+# Enable verbose logging
+local-ai --verbose
+
+# Force CPU-only mode (disable GPU)
+local-ai --force-cpu
 ```
 
 #### Python API
@@ -101,15 +118,16 @@ python -m local_ai.main
 ```python
 import asyncio
 from local_ai.speech_to_text.service import SpeechToTextService
+from local_ai.speech_to_text.models import TranscriptionResult
 
 async def main():
     service = SpeechToTextService()
 
-    # Set up callback for transcriptions
-    def on_transcription(text: str):
-        print(f"Transcribed: {text}")
+    # Set up callback for transcription results with confidence
+    def on_transcription_result(result: TranscriptionResult):
+        print(f"Transcribed: {result.text} (confidence: {result.confidence:.1%})")
 
-    service.set_transcription_callback(on_transcription)
+    service.set_transcription_result_callback(on_transcription_result)
 
     # Start listening
     await service.start_listening()
@@ -144,6 +162,13 @@ The speech-to-text system uses optimized defaults but can be customized by modif
 - **Aggressiveness**: Level 2 (0-3 scale)
 - **Min Speech Duration**: 0.5 seconds
 - **Max Silence Duration**: 2.0 seconds
+
+### Confidence Scoring
+
+- **Range**: 0.0 to 1.0 (0% to 100%)
+- **Calculation**: Based on Whisper's average log probability scores
+- **Display**: Shown as percentage in CLI output (can be hidden with `--no-confidence`)
+- **Typical Values**: 70-95% for clear speech, lower for noisy or unclear audio
 
 ## Performance
 

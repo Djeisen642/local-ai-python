@@ -36,7 +36,7 @@ from local_ai.speech_to_text import ProcessingContext
 
 context = ProcessingContext(
     text="Hello, how are you?",
-    confidence=0.95,
+    confidence=0.87,  # Confidence score from 0.0 to 1.0
     timestamp=1234567890.0,
     processing_time=0.5,
     audio_duration=2.0,
@@ -288,7 +288,7 @@ The system preserves rich metadata for downstream processing:
 ```python
 # Transcription metadata automatically includes:
 {
-    "confidence": 0.95,           # Transcription confidence
+    "confidence": 0.87,           # Transcription confidence (0.0-1.0)
     "timestamp": 1234567890.0,    # When transcription occurred
     "processing_time": 0.5,       # Time taken for transcription
     "audio_duration": 2.0,        # Duration of audio in seconds
@@ -322,15 +322,15 @@ async def main():
     service.register_processing_handler(MyTTSHandler())
 
     # Set up callbacks
-    def transcription_callback(text):
-        print(f"🎤 User: {text}")
+    def transcription_result_callback(result):
+        print(f"🎤 User: {result.text} ({result.confidence:.0%})")
 
     def pipeline_callback(results):
         for result in results:
             if result.stage.value == "response_generation" and result.success:
                 print(f"🤖 Assistant: {result.data['response']}")
 
-    service.set_transcription_callback(transcription_callback)
+    service.set_transcription_result_callback(transcription_result_callback)
     service.set_pipeline_callback(pipeline_callback)
 
     # Start the AI assistant
