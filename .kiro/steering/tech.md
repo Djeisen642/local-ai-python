@@ -24,6 +24,19 @@
 - **Security**: `bandit` for security linting
 - **Documentation**: `docformatter` for docstring formatting
 
+## Development Methodology
+
+### Test-Driven Development (TDD)
+
+**Required for all new features**: Write tests first, implement second (Red-Green-Refactor)
+
+### Coverage Standards
+
+- **New code**: 90% minimum line coverage
+- **Critical paths**: 100% coverage for core functionality
+- **Dead code monitoring**: Weekly `vulture` analysis and cleanup
+- **Quality checks**: Run linting/formatting before commits, type checking daily
+
 ## Common Commands
 
 ### Development Setup
@@ -45,13 +58,31 @@ uv pip install -e .[dev]
 # Run all tests
 pytest
 
-# Run with coverage
-pytest --cov=src --cov-report=html
+# Run all tests in parallel (faster execution)
+pytest -n auto
+
+# Run with coverage (required for all development)
+pytest --cov=src --cov-report=html --cov-fail-under=90
+
+# Run with coverage in parallel (combines coverage from all workers)
+pytest -n auto --cov=src --cov-report=html --cov-fail-under=90
 
 # Run specific test categories
-pytest -m unit          # Fast unit tests only
-pytest -m integration   # Integration tests
-pytest -m performance   # Performance benchmarks
+pytest -m unit                    # Fast unit tests only
+pytest -m integration             # Integration tests
+pytest -m performance             # Performance benchmarks
+
+# Run test categories in parallel
+pytest -n auto -m unit            # Unit tests in parallel
+pytest -n auto -m integration     # Integration tests in parallel
+
+# TDD workflow
+pytest -x --cov=src                         # Stop on first failure
+pytest --cov=src --cov-report=term-missing  # Show missing coverage lines
+pytest -n auto -x                           # Parallel with stop on first failure
+
+# Recommended parallel workflow
+pytest -n auto -m unit && pytest -n auto -m integration  # Run unit tests first, then integration
 ```
 
 ### Code Quality
@@ -67,9 +98,25 @@ ruff format src tests
 # Run security checks
 bandit -r src
 
+# Find dead code
+vulture src tests
+
 # Format docstrings
 docformatter --in-place --recursive src
+
+# Run all quality checks (recommended before commits)
+mypy src tests && ruff check src tests && ruff format src tests && bandit -r src
 ```
+
+### Periodic Quality Maintenance
+
+**Run these checks regularly to maintain code quality:**
+
+- **Before each commit**: `ruff check` and `ruff format` to catch issues early
+- **Daily development**: `mypy` type checking to ensure type safety
+- **Weekly**: `vulture` to find and remove dead code
+- **Weekly**: Full quality suite including `bandit` security checks
+- **Before releases**: Complete quality validation with coverage reports
 
 ### Application Usage
 

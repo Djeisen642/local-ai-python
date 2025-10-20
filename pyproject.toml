@@ -33,11 +33,13 @@ dev = [
   "pytest>=8.4.1",
   "pytest-cov>=6.2.1",
   "pytest-asyncio>=0.23.0",
+  "pytest-xdist>=3.6.0",
   "mypy>=1.17.1",
   "bandit>=1.8.6",
   "docformatter>=1.7.7",
   "ruff>=0.12.9",
   "numpy>=1.24.0",
+  "vulture>=2.14",
 ]
 
 [tool.pytest.ini_options]
@@ -48,6 +50,14 @@ markers = [
     "integration: marks tests as integration tests (may be slow)",
     "unit: marks tests as fast unit tests",
     "performance: marks tests as performance benchmarks (may be very slow)"
+]
+
+# Parallel execution configuration
+# Use auto for CPU count detection, or specify number of workers
+# For coverage with parallel execution, use --cov-append
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
 ]
 
 [tool.ruff]

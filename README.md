@@ -195,7 +195,54 @@ The speech-to-text system uses optimized defaults but can be customized by modif
 | 8GB GPU   | Medium | 2-3s    | Better   |
 | 16GB+ GPU | Large  | 2-4s    | Best     |
 
-## Goals
+## Development
+
+### Setting Up Development Environment
+
+```bash
+# Install development dependencies
+uv pip install -e .[dev]
+```
+
+### Running Tests
+
+The project uses pytest with parallel execution support for faster testing:
+
+```bash
+# Run all tests in parallel
+pytest -n auto
+
+# Run with coverage
+pytest -n auto --cov=src --cov-report=html --cov-fail-under=90
+
+# Run specific test categories
+pytest -n auto -m unit            # Fast unit tests only
+pytest -n auto -m integration     # Integration tests only
+pytest -n auto -m performance     # Performance benchmarks
+
+# Recommended workflow: run unit tests first, then integration
+pytest -n auto -m unit && pytest -n auto -m integration
+
+# TDD workflow (stop on first failure)
+pytest -n auto -x --cov=src
+```
+
+### Code Quality
+
+```bash
+# Run type checking
+mypy src tests
+
+# Run linting and formatting
+ruff check src tests
+ruff format src tests
+
+# Run security checks
+bandit -r src
+
+# Run all quality checks
+mypy src tests && ruff check src tests && ruff format src tests && bandit -r src
+```
 
 ## Troubleshooting
 

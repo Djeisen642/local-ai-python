@@ -10,10 +10,12 @@ local-ai-python/
 │   └── speech_to_text/              # Speech-to-text module
 │       ├── __init__.py
 │       ├── audio_capture.py         # Microphone input management
+│       ├── cache_utils.py           # Cache management utilities
 │       ├── cli_optimization.py      # CLI-specific optimizations
 │       ├── config.py                # Configuration constants
 │       ├── exceptions.py            # Custom exception classes
 │       ├── interfaces.py            # Abstract interfaces & data models
+│       ├── logging_utils.py         # Logging configuration
 │       ├── models.py                # Data classes (AudioChunk, etc.)
 │       ├── optimization.py          # Performance optimization
 │       ├── optimization_cache.py    # Caching for optimizations
@@ -49,6 +51,8 @@ local-ai-python/
 - **exceptions.py** - Custom exception hierarchy
 - **optimization.py** - Performance optimization based on system capabilities
 - **performance_monitor.py** - Metrics collection and monitoring
+- **cache_utils.py** - Cache management and utilities
+- **logging_utils.py** - Logging configuration and utilities
 
 ### Extensibility Layer
 
@@ -77,7 +81,7 @@ local-ai-python/
 
 - Snake case: `start_listening()`, `process_audio_chunk()`
 - Async methods clearly indicated: `async def process_audio()`
-- Private methods prefixed with underscore: `_on_transcription()`
+- Private methods prefixed with underscore: `_process_audio_chunk()`
 
 ### Constants
 
@@ -115,6 +119,10 @@ local-ai-python/
 
 ## Testing Structure
 
+### Test-Driven Development (TDD)
+
+**Required for all new features**: Write tests first, then implement (Red-Green-Refactor cycle)
+
 ### Test Categories
 
 - **Unit tests** (`-m unit`) - Fast, isolated component tests
@@ -126,3 +134,9 @@ local-ai-python/
 - Mirror source structure in `tests/` directory
 - One test file per source module: `test_audio_capture.py`
 - Test data in `tests/test_data/` with organized subdirectories
+
+### Coverage Requirements
+
+- **New code**: 90% minimum line coverage
+- **Critical paths**: 100% coverage for core audio processing
+- **Dead code monitoring**: Regular analysis to remove unused code

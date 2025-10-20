@@ -42,3 +42,21 @@ This is a greenfield project in active development. **Do not worry about backwar
 - Modern best practices
 
 **Breaking changes are acceptable** as we iterate toward the best possible design. Focus on building the right solution rather than maintaining compatibility with earlier iterations.
+
+### Test-Driven Development Mandate
+
+**All new features MUST follow TDD methodology:**
+
+1. **Write tests first** that define expected behavior and edge cases
+2. **Implement minimal code** to make tests pass
+3. **Refactor and optimize** while maintaining test coverage
+4. **Maintain 90% minimum coverage** for all new code
+5. **Regular dead code analysis** to remove unused functionality
+
+**Coverage Standards:**
+
+- **New modules**: 90% minimum line coverage
+- **Core functionality**: 100% coverage for critical paths
+- **Dead code removal**: Monthly analysis and cleanup
+
+This ensures reliable, maintainable software while moving fast in a greenfield environment.

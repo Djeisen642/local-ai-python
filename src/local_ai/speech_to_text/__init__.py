@@ -1,18 +1,18 @@
 """Speech-to-text module for local AI application."""
 
-from .models import AudioChunk, SpeechSegment, TranscriptionResult
-from .service import SpeechToTextService
 from .interfaces import (
-    ProcessingStage,
-    ProcessingContext,
-    ProcessingResult,
-    ProcessingHandler,
     EmbeddingHandler,
+    ProcessingContext,
+    ProcessingHandler,
+    ProcessingPipeline,
+    ProcessingResult,
+    ProcessingStage,
     ResponseGenerationHandler,
     TextToSpeechHandler,
-    ProcessingPipeline
 )
+from .models import AudioChunk, SpeechSegment, TranscriptionResult
 from .pipeline import PluginProcessingPipeline, create_processing_context
+from .service import SpeechToTextService
 
 __all__ = [
     "AudioChunk",
@@ -28,5 +28,5 @@ __all__ = [
     "TextToSpeechHandler",
     "ProcessingPipeline",
     "PluginProcessingPipeline",
-    "create_processing_context"
+    "create_processing_context",
 ]
