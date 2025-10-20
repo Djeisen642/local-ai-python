@@ -12,6 +12,12 @@ class AudioChunk:
     sample_rate: int
     duration: float
 
+    # Audio filtering metadata
+    noise_level: float = 0.0
+    signal_level: float = 0.0
+    snr_db: float = 0.0
+    is_filtered: bool = False
+
 
 @dataclass
 class TranscriptionResult:
