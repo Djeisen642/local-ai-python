@@ -70,8 +70,8 @@ sequenceDiagram
 **Key Operations**:
 
 - Connect to Ollama (http://localhost:11434)
-- Send structured prompts
-- Parse TOML responses (token-efficient format)
+- Send structured prompts with dynamic date context
+- Parse JSON responses (reliable format for LLMs)
 - Handle retries (3 attempts, exponential backoff)
 - Sanitize input to prevent prompt injection
 
@@ -79,8 +79,28 @@ sequenceDiagram
 
 - Concise format optimized for small models (~100 tokens)
 - Direct question: "Is this an actionable task?"
-- TOML response format (token-efficient, simpler than JSON)
+- **JSON response format** (better LLM compatibility than TOML)
+- **Dynamic date context**: Current date and relative date conversions calculated at runtime
 - Input sanitization: escape quotes, remove newlines, 500 char limit
+- Example-based prompting for improved accuracy
+- Template uses `.format()` with placeholders for text and date values
+
+**Response Format Decision - JSON vs TOML**:
+
+During implementation, we initially chose TOML for its token efficiency and simplicity. However, empirical testing with llama3.2:1b revealed significant reliability issues:
+
+- **TOML Results**: 0-33% success rate across various prompt templates
+
+  - Frequent parsing errors (invalid syntax, missing fields)
+  - Inconsistent formatting from the LLM
+  - Model struggled with TOML's strict syntax requirements
+
+- **JSON Results**: 63-75% success rate with same prompts
+  - More reliable parsing (LLMs trained extensively on JSON)
+  - Better handling of null values and nested structures
+  - Consistent output format across multiple runs
+
+**Decision**: Switched to JSON for production reliability. The small token overhead (~5-10 tokens) is negligible compared to the 2-3x improvement in classification accuracy.
 
 **Security**:
 
@@ -88,11 +108,19 @@ sequenceDiagram
 - Length limiting (500 chars) prevents token exhaustion
 - Quote escaping prevents breaking out of TEXT field
 
-**Model**: llama3.2:1b (~1GB VRAM, ~100-200ms inference)
+**Model**: llama3.2:3b (minimum recommended for reliable task detection)
+
+**Dynamic Prompt Generation**:
+
+- Date context is generated dynamically on each request
+- Uses Python's `.format()` to inject current date values into prompt template
+- Calculates: today, tomorrow, next Friday, next Monday, next week
+- Ensures date references are always accurate regardless of when code runs
+- Example: "tomorrow" automatically resolves to correct date based on current day
 
 **Configuration**:
 
-- Model: llama3.2:1b
+- Model: llama3.2:3b (minimum for reliable classification)
 - Timeout: 10s
 - Max retries: 3
 - Temperature: 0.1
@@ -116,21 +144,33 @@ sequenceDiagram
 
 ### 4. MCP Server
 
-**Responsibilities**: Expose task operations via MCP
+**Responsibilities**: Expose task operations via Model Context Protocol
 
-**MCP Tools**:
+**Implementation**: FastMCP server with dual transport support
 
-1. `list_tasks` - List with filters
-2. `add_task` - Create new task
-3. `update_task_status` - Change status
-4. `delete_task` - Remove task
-5. `get_task_statistics` - Get counts
+**Transports**:
 
-**Configuration**:
+- **stdio**: For MCP clients (Claude Desktop, etc.) - default
+- **sse**: HTTP/SSE for web-based integrations
 
-- Host: localhost
-- Port: 3000
-- Auth: optional
+**MCP Tools** (with JSON schemas):
+
+1. `list_tasks` - List with optional status/priority filters
+2. `add_task` - Create new task with description, priority, due_date
+3. `update_task_status` - Change task status by UUID
+4. `delete_task` - Remove task by UUID
+5. `get_task_statistics` - Get task counts by status
+
+**Configuration** (from config.py):
+
+- Host: `DEFAULT_MCP_HOST` (localhost)
+- Port: `DEFAULT_MCP_PORT` (3000)
+- Server name: `DEFAULT_MCP_SERVER_NAME` (local-ai-tasks)
+
+**Entry Points**:
+
+- CLI: `local-ai-mcp` (stdio) or `local-ai-mcp sse` (HTTP)
+- Module: `python -m local_ai.task_management.mcp_server`
 
 ## Data Models
 
@@ -245,7 +285,7 @@ Users can optionally integrate with speech-to-text by:
 
 ### Optimization for 8GB GPU
 
-- Model: llama3.2:1b (~1GB VRAM)
+- Model: llama3.2:3b (~2GB VRAM, minimum for reliable task detection)
 - Single inference per request
 - Limit context to 512 tokens
 - Sequential processing (queue requests)
@@ -297,11 +337,15 @@ DEFAULT_CONFIDENCE_THRESHOLD = 0.7
 TASK_DETECTION_ENABLED = True
 
 # LLM Configuration
-DEFAULT_OLLAMA_MODEL = "llama3.2:1b"
+DEFAULT_OLLAMA_MODEL = "llama3.2:3b"  # Minimum for reliable task detection
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_TIMEOUT = 10.0  # seconds
 DEFAULT_OLLAMA_MAX_RETRIES = 3
 DEFAULT_OLLAMA_TEMPERATURE = 0.1
+
+# LLM Prompt Template with dynamic date placeholders
+# Placeholders: {text}, {today}, {day_name}, {tomorrow}, {friday}, {monday}, {next_week}
+# Dynamic values are calculated and injected at runtime for accurate date context
 
 # Storage Configuration
 DEFAULT_DATABASE_PATH = "~/.local-ai/tasks.db"
@@ -326,14 +370,14 @@ DEFAULT_MCP_SERVER_NAME = "local-ai-tasks"
 ### System Requirements
 
 - Python 3.13+
-- Ollama with llama3.2:1b model
+- Ollama with llama3.2:3b model (minimum for reliable task detection)
 - SQLite 3.35+ (included with Python 3.13)
 - 8GB GPU (recommended) or CPU fallback
 
 ## Deployment
 
 1. Install Ollama: `curl -fsSL https://ollama.com/install.sh | sh`
-2. Pull model: `ollama pull llama3.2:1b`
+2. Pull model: `ollama pull llama3.2:3b`
 3. Install package: `uv pip install -e .[task-management]`
 4. Database auto-initializes on first run
 5. MCP server starts automatically

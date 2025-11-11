@@ -1,6 +1,22 @@
 # Local AI
 
-A privacy-focused AI application that provides AI capabilities without requiring internet connectivity. The primary focus is on speech-to-text functionality using OpenAI's Whisper model running locally.
+A privacy-focused AI application that provides AI capabilities without requiring internet connectivity. Features real-time speech-to-text using Whisper and intelligent task management with local LLM.
+
+## Table of Contents
+
+- [Core Features](#core-features)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Performance](#performance)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+
+## Documentation
+
+- **[Task Management Guide](docs/task-management-guide.md)** - Complete guide to voice task detection and MCP integration
+- **[Task Management Deployment](docs/task-management-deployment.md)** - Deployment instructions for Ollama and MCP server
+- **[Task Management Configuration](docs/task-management-configuration.md)** - Detailed configuration options and integration patterns
 
 ## Core Features
 
@@ -13,6 +29,16 @@ Convert voice to text with local processing using OpenAI's Whisper model:
 - **GPU acceleration** - Automatic GPU detection with CPU fallback
 - **Privacy-first** - All processing happens locally, no data leaves the machine
 - **Linux optimized** - Designed for Linux environments with headless support
+
+### ✅ Voice Task Management
+
+Automatically detect and manage tasks from voice input using local LLM:
+
+- **Automatic task detection** - AI identifies tasks from natural speech
+- **Local LLM processing** - Uses Ollama with llama3.2:3b for privacy
+- **Persistent storage** - SQLite database with full history tracking
+- **MCP integration** - Expose tasks to AI tools via Model Context Protocol
+- **Source-agnostic** - Works with voice, CLI, or direct API calls
 
 ### 🔮 Planned Features
 
@@ -34,6 +60,7 @@ The system is built with extensibility in mind, using abstract interfaces and pl
 - **uv** (modern Python package manager)
 - Microphone access
 - (Optional) NVIDIA GPU with CUDA for faster processing
+- (Optional) **Ollama** for task management features
 
 **Install uv package manager:**
 
@@ -43,6 +70,16 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Or with pip
 pip install uv
+```
+
+**Install Ollama (for task management):**
+
+```bash
+# Linux/macOS
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull the required model (2GB download)
+ollama pull llama3.2:3b
 ```
 
 ### Installation
@@ -115,6 +152,8 @@ local-ai --force-cpu
 
 #### Python API
 
+**Speech-to-Text:**
+
 ```python
 import asyncio
 from local_ai.speech_to_text.service import SpeechToTextService
@@ -140,6 +179,37 @@ async def main():
 
 asyncio.run(main())
 ```
+
+**Task Management:**
+
+See [Task Management Guide](docs/task-management-guide.md) for complete API documentation.
+
+## Task Management
+
+Automatically detect and manage tasks from voice input using local LLM. See the **[Task Management Guide](docs/task-management-guide.md)** for complete documentation.
+
+### Quick Start
+
+```bash
+# Install Ollama and model
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2:3b
+
+# Start application
+local-ai
+
+# Say: "Remind me to finish the report by Friday"
+# Task is automatically detected and stored
+```
+
+### Key Features
+
+- **Automatic Detection** from speech or text
+- **Local LLM** processing with Ollama (llama3.2:3b)
+- **MCP Integration** for Claude Desktop, Cursor, etc.
+- **Smart Extraction** of description, priority, and due dates
+
+See [Task Management Guide](docs/task-management-guide.md) for API examples, configuration, and troubleshooting.
 
 ## Configuration
 
@@ -409,6 +479,62 @@ RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
 ```
 
 Minor test framework warnings that don't affect test results or application functionality.
+
+#### 🤖 Task Management Issues
+
+**"Ollama connection failed" or "Model not found"**
+
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# Start Ollama service
+ollama serve
+
+# Pull the required model
+ollama pull llama3.2:3b
+
+# Verify model is available
+ollama list
+```
+
+**Tasks not being detected from speech**
+
+- Check that `TASK_DETECTION_FROM_SPEECH_ENABLED = True` in config
+- Verify Ollama is running: `curl http://localhost:11434/api/tags`
+- Check confidence threshold (default 0.7) - lower if needed
+- Review logs with `--verbose` flag to see classification results
+
+**MCP server not connecting**
+
+```bash
+# Check if port 3000 is available
+netstat -tuln | grep 3000
+
+# Verify MCP server configuration
+python -m local_ai.task_management.mcp_server
+
+# Check MCP client configuration (mcp.json)
+```
+
+**Database errors or corruption**
+
+```bash
+# Backup existing database
+cp ~/.local-ai/tasks.db ~/.local-ai/tasks.db.backup
+
+# Reset database (will lose tasks)
+rm ~/.local-ai/tasks.db
+
+# Database will be recreated on next run
+```
+
+**Low task detection accuracy**
+
+- Ensure you're using llama3.2:3b (not smaller models)
+- Speak clearly and use explicit task language ("I need to...", "Remind me to...")
+- Check classification confidence in logs (`--verbose`)
+- Consider adjusting `DEFAULT_CONFIDENCE_THRESHOLD` in config
 
 ### Getting Help
 

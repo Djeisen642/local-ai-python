@@ -132,6 +132,7 @@ class TestDatabaseConnectionManagement:
             assert conn is not None
             cursor = await conn.execute("SELECT 1")
             result = await cursor.fetchone()
+            assert result is not None
             assert result[0] == 1
 
         await db.close()
@@ -157,7 +158,9 @@ class TestDatabaseConnectionManagement:
             async with db._get_connection() as conn:
                 cursor = await conn.execute("SELECT COUNT(*) FROM tasks")
                 result = await cursor.fetchone()
-                return result[0]
+                assert result is not None
+                count: int = result[0]
+                return count
 
         results = await asyncio.gather(*[read_operation() for _ in range(5)])
         assert all(r == 0 for r in results)

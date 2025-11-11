@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -11,7 +12,7 @@ from local_ai.task_management.models import Task, TaskPriority, TaskStatus
 
 
 @pytest.fixture
-def mock_database():
+def mock_database() -> AsyncMock:
     """Create a mock database for testing."""
     db = AsyncMock()
     db.initialize = AsyncMock()
@@ -36,7 +37,7 @@ def mock_database():
 
 
 @pytest.fixture
-def sample_task():
+def sample_task() -> Task:
     """Create a sample task for testing."""
     return Task(
         id=uuid.uuid4(),
@@ -55,7 +56,7 @@ def sample_task():
 class TestTaskListManagerInitialization:
     """Test Task List Manager initialization."""
 
-    async def test_initialization_with_database(self, mock_database):
+    async def test_initialization_with_database(self, mock_database: Any) -> None:
         """Test manager initializes with database connection."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -64,7 +65,9 @@ class TestTaskListManagerInitialization:
 
         mock_database.initialize.assert_called_once()
 
-    async def test_initialization_loads_existing_tasks(self, mock_database, sample_task):
+    async def test_initialization_loads_existing_tasks(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test manager loads existing tasks on startup."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -77,7 +80,9 @@ class TestTaskListManagerInitialization:
         stats = await manager.get_statistics()
         assert stats["total"] == 1
 
-    async def test_initialization_handles_empty_database(self, mock_database):
+    async def test_initialization_handles_empty_database(
+        self, mock_database: Any
+    ) -> None:
         """Test manager handles empty database gracefully."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -89,7 +94,9 @@ class TestTaskListManagerInitialization:
         stats = await manager.get_statistics()
         assert stats["total"] == 0
 
-    async def test_initialization_calculates_statistics(self, mock_database, sample_task):
+    async def test_initialization_calculates_statistics(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test manager calculates statistics on initialization."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -131,7 +138,7 @@ class TestTaskListManagerInitialization:
 class TestTaskListManagerCRUD:
     """Test Task List Manager CRUD operations."""
 
-    async def test_add_task_generates_uuid(self, mock_database):
+    async def test_add_task_generates_uuid(self, mock_database: Any) -> None:
         """Test adding task generates UUID automatically."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -148,7 +155,7 @@ class TestTaskListManagerCRUD:
         assert isinstance(task_id, uuid.UUID)
         mock_database.insert_task.assert_called_once()
 
-    async def test_add_task_with_due_date(self, mock_database):
+    async def test_add_task_with_due_date(self, mock_database: Any) -> None:
         """Test adding task with due date."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -168,7 +175,7 @@ class TestTaskListManagerCRUD:
         call_args = mock_database.insert_task.call_args[0][0]
         assert call_args.due_date == due_date
 
-    async def test_add_task_with_metadata(self, mock_database):
+    async def test_add_task_with_metadata(self, mock_database: Any) -> None:
         """Test adding task with metadata."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -188,7 +195,7 @@ class TestTaskListManagerCRUD:
         call_args = mock_database.insert_task.call_args[0][0]
         assert call_args.metadata == metadata
 
-    async def test_get_task_by_id(self, mock_database, sample_task):
+    async def test_get_task_by_id(self, mock_database: Any, sample_task: Any) -> None:
         """Test retrieving task by ID."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -203,7 +210,7 @@ class TestTaskListManagerCRUD:
         assert task.description == sample_task.description
         mock_database.get_task.assert_called_once_with(sample_task.id)
 
-    async def test_get_task_not_found(self, mock_database):
+    async def test_get_task_not_found(self, mock_database: Any) -> None:
         """Test getting non-existent task raises error."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -215,7 +222,7 @@ class TestTaskListManagerCRUD:
         with pytest.raises(TaskNotFoundError):
             await manager.get_task(uuid.uuid4())
 
-    async def test_list_all_tasks(self, mock_database, sample_task):
+    async def test_list_all_tasks(self, mock_database: Any, sample_task: Any) -> None:
         """Test listing all tasks."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -230,7 +237,7 @@ class TestTaskListManagerCRUD:
         assert len(result) == 1
         assert result[0].id == sample_task.id
 
-    async def test_list_tasks_by_status(self, mock_database):
+    async def test_list_tasks_by_status(self, mock_database: Any) -> None:
         """Test listing tasks filtered by status."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -257,7 +264,7 @@ class TestTaskListManagerCRUD:
             status=TaskStatus.PENDING, priority=None
         )
 
-    async def test_list_tasks_by_priority(self, mock_database):
+    async def test_list_tasks_by_priority(self, mock_database: Any) -> None:
         """Test listing tasks filtered by priority."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -284,7 +291,7 @@ class TestTaskListManagerCRUD:
             status=None, priority=TaskPriority.HIGH
         )
 
-    async def test_update_task_status(self, mock_database, sample_task):
+    async def test_update_task_status(self, mock_database: Any, sample_task: Any) -> None:
         """Test updating task status."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -297,7 +304,9 @@ class TestTaskListManagerCRUD:
             sample_task.id, TaskStatus.IN_PROGRESS
         )
 
-    async def test_update_task_status_to_completed(self, mock_database, sample_task):
+    async def test_update_task_status_to_completed(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test updating task status to completed sets completed_at."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -310,7 +319,9 @@ class TestTaskListManagerCRUD:
             sample_task.id, TaskStatus.COMPLETED
         )
 
-    async def test_update_task_priority(self, mock_database, sample_task):
+    async def test_update_task_priority(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test updating task priority."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -323,7 +334,9 @@ class TestTaskListManagerCRUD:
             sample_task.id, {"priority": TaskPriority.HIGH}
         )
 
-    async def test_update_task_multiple_fields(self, mock_database, sample_task):
+    async def test_update_task_multiple_fields(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test updating multiple task fields."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -338,7 +351,7 @@ class TestTaskListManagerCRUD:
 
         mock_database.update_task.assert_called_once_with(sample_task.id, updates)
 
-    async def test_delete_task(self, mock_database, sample_task):
+    async def test_delete_task(self, mock_database: Any, sample_task: Any) -> None:
         """Test deleting task."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -349,7 +362,7 @@ class TestTaskListManagerCRUD:
 
         mock_database.delete_task.assert_called_once_with(sample_task.id)
 
-    async def test_delete_nonexistent_task(self, mock_database):
+    async def test_delete_nonexistent_task(self, mock_database: Any) -> None:
         """Test deleting non-existent task raises error."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -367,7 +380,7 @@ class TestTaskListManagerCRUD:
 class TestTaskListManagerStatistics:
     """Test Task List Manager statistics calculation."""
 
-    async def test_get_statistics_empty(self, mock_database):
+    async def test_get_statistics_empty(self, mock_database: Any) -> None:
         """Test statistics for empty task list."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -384,7 +397,7 @@ class TestTaskListManagerStatistics:
         assert stats["completed"] == 0
         assert stats["cancelled"] == 0
 
-    async def test_get_statistics_with_tasks(self, mock_database):
+    async def test_get_statistics_with_tasks(self, mock_database: Any) -> None:
         """Test statistics calculation with multiple tasks."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -443,7 +456,7 @@ class TestTaskListManagerStatistics:
         assert stats["completed"] == 1
         assert stats["cancelled"] == 0
 
-    async def test_statistics_update_after_add(self, mock_database):
+    async def test_statistics_update_after_add(self, mock_database: Any) -> None:
         """Test statistics update after adding task."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -480,7 +493,7 @@ class TestTaskListManagerStatistics:
 class TestTaskListManagerHistory:
     """Test Task List Manager history tracking."""
 
-    async def test_get_task_history(self, mock_database, sample_task):
+    async def test_get_task_history(self, mock_database: Any, sample_task: Any) -> None:
         """Test retrieving task history."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -514,7 +527,7 @@ class TestTaskListManagerHistory:
         assert result[1]["action"] == "status_updated"
         mock_database.get_task_history.assert_called_once_with(sample_task.id)
 
-    async def test_history_tracks_creation(self, mock_database):
+    async def test_history_tracks_creation(self, mock_database: Any) -> None:
         """Test history tracks task creation."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -531,7 +544,9 @@ class TestTaskListManagerHistory:
         # Verify insert_task was called (which creates history entry)
         mock_database.insert_task.assert_called_once()
 
-    async def test_history_tracks_status_updates(self, mock_database, sample_task):
+    async def test_history_tracks_status_updates(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test history tracks status updates."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -543,7 +558,9 @@ class TestTaskListManagerHistory:
         # Verify update_task_status was called (which creates history entry)
         mock_database.update_task_status.assert_called_once()
 
-    async def test_history_tracks_deletions(self, mock_database, sample_task):
+    async def test_history_tracks_deletions(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test history tracks task deletions."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -561,7 +578,7 @@ class TestTaskListManagerHistory:
 class TestTaskListManagerErrorHandling:
     """Test Task List Manager error handling."""
 
-    async def test_database_error_on_add(self, mock_database):
+    async def test_database_error_on_add(self, mock_database: Any) -> None:
         """Test handling database error when adding task."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -578,7 +595,9 @@ class TestTaskListManagerErrorHandling:
                 confidence=0.9,
             )
 
-    async def test_database_error_on_update(self, mock_database, sample_task):
+    async def test_database_error_on_update(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test handling database error when updating task."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -590,7 +609,9 @@ class TestTaskListManagerErrorHandling:
         with pytest.raises(DatabaseError):
             await manager.update_task_status(sample_task.id, TaskStatus.COMPLETED)
 
-    async def test_database_error_on_delete(self, mock_database, sample_task):
+    async def test_database_error_on_delete(
+        self, mock_database: Any, sample_task: Any
+    ) -> None:
         """Test handling database error when deleting task."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -602,7 +623,7 @@ class TestTaskListManagerErrorHandling:
         with pytest.raises(DatabaseError):
             await manager.delete_task(sample_task.id)
 
-    async def test_maintains_in_memory_state_on_failure(self, mock_database):
+    async def test_maintains_in_memory_state_on_failure(self, mock_database: Any) -> None:
         """Test manager maintains in-memory state when database fails."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -630,7 +651,7 @@ class TestTaskListManagerErrorHandling:
                 confidence=0.9,
             )
 
-    async def test_graceful_shutdown(self, mock_database):
+    async def test_graceful_shutdown(self, mock_database: Any) -> None:
         """Test manager shuts down gracefully."""
         from local_ai.task_management.task_list_manager import TaskListManager
 
@@ -640,7 +661,7 @@ class TestTaskListManagerErrorHandling:
 
         mock_database.close.assert_called_once()
 
-    async def test_shutdown_handles_errors(self, mock_database):
+    async def test_shutdown_handles_errors(self, mock_database: Any) -> None:
         """Test shutdown handles errors gracefully."""
         from local_ai.task_management.task_list_manager import TaskListManager
 

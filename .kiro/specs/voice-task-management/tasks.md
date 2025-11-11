@@ -50,7 +50,7 @@
   - [x] 4.1 Write LLM classifier unit tests FIRST (fast - mock Ollama) [RED]
     - Write tests for Ollama connection
     - Write tests for prompt generation
-    - Write tests for response parsing with valid/invalid TOML
+    - Write tests for response parsing with valid/invalid JSON
     - Write tests for retry logic
     - Write tests for timeout handling
     - Tests will fail initially
@@ -64,7 +64,7 @@
   - [x] 4.3 Implement classification logic [GREEN]
     - Create structured prompt template
     - Send classification requests to Ollama
-    - Parse TOML responses from LLM
+    - Parse JSON responses from LLM
     - Extract task details (description, priority, due date)
     - Make classification tests pass
     - _Requirements: 2.3, 2.4_
@@ -110,103 +110,117 @@
     - All Task List Manager tests should now pass
     - _Requirements: 5.3, 5.4_
 
-- [ ] 6. Implement Task Detection Service (TDD)
+- [x] 6. Implement Task Detection Service (TDD)
 
-  - [ ] 6.1 Write Task Detection Service unit tests FIRST (fast - mock dependencies) [RED]
+  - [x] 6.1 Write Task Detection Service unit tests FIRST (fast - mock dependencies) [RED]
     - Write tests for task detection flow with mocked LLM and manager
     - Write tests for confidence thresholding
     - Write tests for metadata extraction
     - Write tests for error handling
     - Tests will fail initially
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
-  - [ ] 6.2 Create TaskDetectionService class [GREEN]
+  - [x] 6.2 Create TaskDetectionService class [GREEN]
     - Accept text input directly (no ProcessingHandler dependency)
     - Initialize with LLM Classifier and Task List Manager
     - Define detect_task_from_text() method
     - Make initialization tests pass
     - _Requirements: 1.1, 1.2_
-  - [ ] 6.3 Implement task detection logic [GREEN]
+  - [x] 6.3 Implement task detection logic [GREEN]
     - Call LLM Classifier for classification
     - Handle classification results
     - Create tasks via Task List Manager
     - Return TaskDetectionResult
     - Make detection tests pass
     - _Requirements: 1.3, 1.4, 1.5_
-  - [ ] 6.4 Implement async processing [GREEN]
+  - [x] 6.4 Implement async processing [GREEN]
     - Make all operations async
     - Handle errors gracefully
     - Support concurrent requests
     - Make async tests pass
     - _Requirements: 1.3, 1.4_
-  - [ ] 6.5 Add logging and metrics [GREEN]
+  - [x] 6.5 Add logging and metrics [GREEN]
     - Log task detection events
     - Track processing time
     - Integrate with performance monitor
     - All Task Detection Service tests should now pass
     - _Requirements: 8.1, 8.4, 8.5_
 
-- [ ] 7. Implement MCP Server (TDD)
+- [x] 7. Implement MCP Server (TDD)
 
-  - [ ] 7.1 Write MCP server unit tests FIRST (fast - mock Task Manager) [RED]
+  - **Implementation Note**: Uses FastMCP library with stdio and HTTP/SSE transport support
+  - **Entry Point**: `local-ai-mcp` CLI command or `python -m local_ai.task_management.mcp_server`
+
+  - [x] 7.1 Write MCP server unit tests FIRST (fast - mock Task Manager) [RED]
     - Write tests for tool registration
     - Write tests for request validation
     - Write tests for response formatting
     - Write tests for error handling
     - Tests will fail initially
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.5_
-  - [ ] 7.2 Create MCP server initialization [GREEN]
-    - Initialize MCP server with configuration
-    - Register server with MCP SDK
+  - [x] 7.2 Create MCP server initialization [GREEN]
+    - Initialize FastMCP server with configuration (host, port, server name)
+    - Register tool functions with @mcp.tool() decorators
+    - Support stdio and sse transports
     - Handle server lifecycle
     - Make initialization tests pass
     - _Requirements: 4.1_
-  - [ ] 7.3 Implement MCP tools [GREEN]
-    - Implement list_tasks tool with filters
-    - Implement add_task tool
-    - Implement update_task_status tool
-    - Implement delete_task tool
-    - Implement get_task_statistics tool
+  - [x] 7.3 Implement MCP tools [GREEN]
+    - Implement list_tasks tool with filters (status, priority)
+    - Implement add_task tool (description, priority, due_date)
+    - Implement update_task_status tool (task_id, status)
+    - Implement delete_task tool (task_id)
+    - Implement get_task_statistics tool (no params)
+    - Each tool decorated with @mcp.tool() and includes JSON schema
     - Make tool tests pass
     - _Requirements: 4.2, 4.3, 4.4, 4.5_
-  - [ ] 7.4 Implement request validation [GREEN]
+    - _Dependencies: mcp>=1.0.0 (FastMCP)_
+  - [x] 7.4 Implement request validation [GREEN]
     - Validate incoming MCP requests
     - Return structured error responses
     - Handle malformed requests
     - Make validation tests pass
     - _Requirements: 5.5_
-  - [ ] 7.5 Integrate with Task List Manager [GREEN]
+  - [x] 7.5 Integrate with Task List Manager [GREEN]
     - Delegate operations to Task List Manager
     - Handle responses and errors
     - Return formatted results
     - All MCP server tests should now pass
     - _Requirements: 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 8. Integration tests and examples
+- [x] 8. Integration tests and speech-to-text integration
 
-  - [ ] 8.1 Write end-to-end integration tests (slower - real Ollama if available)
+  - [x] 8.1 Write end-to-end integration tests (slower - real Ollama if available)
     - Test: text → task detection → storage → MCP
     - Test with various input types (clear tasks, non-tasks, ambiguous)
     - Verify task accessible via MCP
     - Use real Ollama if available, otherwise mock
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 4.2, 4.3, 4.4_
-  - [ ] 8.2 Create example integration with speech-to-text (optional)
-    - Show how to call TaskDetectionService from transcription callback
-    - Demonstrate standalone usage
-    - Document integration pattern
-    - _Requirements: 7.1, 7.2_
+  - [x] 8.2 Integrate with speech-to-text module
+    - Add task detection to transcription callback in SpeechToTextService
+    - Initialize TaskDetectionService in main service
+    - Call detect_task_from_text() when transcription completes
+    - Handle task detection results (log, notify, etc.)
+    - Make integration optional via configuration
+    - _Requirements: 7.1, 7.2, 7.3_
+  - [x] 8.3 Write integration tests for speech-to-text connection
+    - Test transcription → task detection flow
+    - Test with real speech-to-text output
+    - Verify non-blocking behavior
+    - Test configuration toggle (enabled/disabled)
+    - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 9. Documentation and deployment
-  - [ ] 9.1 Update README with task management features
+- [x] 9. Documentation and deployment
+  - [x] 9.1 Update README with task management features
     - Document task detection capabilities
     - Document MCP integration
     - Document usage examples
     - _Requirements: All_
-  - [ ] 9.2 Create deployment guide
+  - [x] 9.2 Create deployment guide
     - Document Ollama installation
-    - Document model download (llama3.2:1b)
+    - Document model download (llama3.2:3b)
     - Document MCP server setup
     - _Requirements: 2.1, 2.5, 4.1_
-  - [ ] 9.3 Add configuration examples
+  - [x] 9.3 Add configuration examples
     - Document config.py constants
     - Provide usage examples
     - Document integration patterns

@@ -14,7 +14,7 @@ from local_ai.task_management.task_list_manager import TaskListManager
 class TestTaskListManagerIntegration:
     """Integration tests with real in-memory database."""
 
-    async def test_end_to_end_task_lifecycle(self):
+    async def test_end_to_end_task_lifecycle(self) -> None:
         """Test complete task lifecycle from creation to deletion."""
         # Setup
         db = TaskDatabase(":memory:")
@@ -64,7 +64,7 @@ class TestTaskListManagerIntegration:
         finally:
             await manager.shutdown()
 
-    async def test_multiple_tasks_with_filters(self):
+    async def test_multiple_tasks_with_filters(self) -> None:
         """Test managing multiple tasks with filtering."""
         # Setup
         db = TaskDatabase(":memory:")
@@ -108,7 +108,7 @@ class TestTaskListManagerIntegration:
         finally:
             await manager.shutdown()
 
-    async def test_persistence_across_sessions(self):
+    async def test_persistence_across_sessions(self) -> None:
         """Test that tasks persist across manager sessions."""
         import tempfile
 

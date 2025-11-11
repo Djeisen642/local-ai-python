@@ -19,10 +19,13 @@ dependencies = [
     "scipy>=1.10.0",
     "aiosqlite>=0.20.0",
     "ollama>=0.4.0",
+    "fastmcp>=2.13.0.2",
 ]
 
 [project.scripts]
 local-ai = "local_ai.main:cli_entry_with_args"
+local-ai-mcp = "local_ai.task_management.mcp_server:cli_entry"
+local-ai-combined = "local_ai.combined_server:cli_entry"
 
 [project.urls]
 homepage = "https://github.com/Djeisen642/local-ai-python#readme"
@@ -130,6 +133,15 @@ extend-select = [
   "T20",
   "UP",
   "W",
+]
+
+# Disable overly strict PLR rules that conflict with common patterns
+ignore = [
+  "PLR0911",  # Too many return statements (conflicts with early-return pattern)
+  "PLR0912",  # Too many branches (often unavoidable in validation logic)
+  "PLR0913",  # Too many arguments (sometimes necessary for explicit APIs)
+  "PLR0915",  # Too many statements (arbitrary limit, not always meaningful)
+  "PLR2004",  # Magic value comparisons (too noisy, constants aren't always clearer)
 ]
 
 [tool.mypy]

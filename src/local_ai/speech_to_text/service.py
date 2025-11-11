@@ -29,6 +29,8 @@ class SpeechToTextService:
         use_cache: bool = True,
         force_cpu: bool = False,
         enable_filtering: bool = False,
+        enable_task_detection: bool = False,
+        task_detection_service: Any | None = None,
     ) -> None:
         """
         Initialize the speech-to-text service.
@@ -41,6 +43,9 @@ class SpeechToTextService:
             enable_filtering: Whether to enable audio filtering pipeline (disabled by
                 default due to performance overhead with minimal accuracy improvement
                 on clean audio - see docs/audio-filtering-evaluation.md)
+            enable_task_detection: Whether to enable task detection from transcriptions
+            task_detection_service: Optional TaskDetectionService instance for task
+                detection (if None and enable_task_detection is True, will be created)
         """
         self._listening = False
         self._transcription_result_callback: (
@@ -56,6 +61,10 @@ class SpeechToTextService:
         # Audio filtering
         self._enable_filtering = enable_filtering
         self._audio_filter_pipeline: Any | None = None
+
+        # Task detection integration
+        self._enable_task_detection = enable_task_detection
+        self._task_detection_service = task_detection_service
 
         # Processing state
         self._processing_task: asyncio.Task | None = None
@@ -356,12 +365,49 @@ class SpeechToTextService:
             except Exception as e:
                 logger.error(f"Error in transcription result callback: {e}")
 
+        # Trigger task detection if enabled
+        if self._enable_task_detection and self._task_detection_service:
+            asyncio.create_task(
+                self._detect_task_from_transcription(transcription_result.text)
+            )
+
         # Trigger pipeline processing for future systems
         if transcription_metadata:
             asyncio.create_task(
                 self._trigger_pipeline_processing(
                     transcription_result.text, transcription_metadata
                 )
+            )
+
+    async def _detect_task_from_transcription(self, text: str) -> None:
+        """
+        Detect and create tasks from transcribed text.
+
+        Args:
+            text: Transcribed text to analyze for tasks
+        """
+        try:
+            logger.info(f"🎯 Starting task detection from transcription: '{text}'")
+            result = await self._task_detection_service.detect_task_from_text(text)
+
+            if result.task_detected and result.task:
+                logger.info(
+                    f"✅ Task detected from speech: '{result.task.description}' "
+                    f"(confidence: {result.confidence:.2f}, "
+                    f"priority: {result.task.priority}, "
+                    f"due_date: {result.task.due_date})"
+                )
+            else:
+                logger.info(
+                    f"❌ No task detected from speech "
+                    f"(confidence: {result.confidence:.2f})"
+                )
+                if result.error:
+                    logger.warning(f"⚠️ Task detection error: {result.error}")
+
+        except Exception as e:
+            logger.error(
+                f"❌ Error detecting task from transcription: {e}", exc_info=True
             )
 
     async def _trigger_pipeline_processing(

@@ -133,7 +133,8 @@ class TaskDatabase:
                 "CREATE INDEX IF NOT EXISTS idx_history_task_id ON task_history(task_id)"
             )
             await conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_history_timestamp ON task_history(timestamp)"
+                """CREATE INDEX IF NOT EXISTS idx_history_timestamp
+                   ON task_history(timestamp)"""
             )
 
             # Update schema version
@@ -385,7 +386,8 @@ class TaskDatabase:
                 await conn.execute(
                     """
                     INSERT INTO task_history (
-                        task_id, timestamp, action, field_name, old_value, new_value, source
+                        task_id, timestamp, action, field_name,
+                        old_value, new_value, source
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
@@ -474,7 +476,8 @@ class TaskDatabase:
         async with self._get_connection() as conn:
             # Get total count
             cursor = await conn.execute("SELECT COUNT(*) FROM tasks")
-            total = (await cursor.fetchone())[0]
+            row = await cursor.fetchone()
+            total = row[0] if row else 0
 
             # Get counts by status
             cursor = await conn.execute(

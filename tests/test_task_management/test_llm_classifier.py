@@ -21,19 +21,11 @@ TEST_CONFIDENCE_LOW = 0.6
 CONFIDENCE_THRESHOLD = 0.7
 
 
-def to_toml(data: dict[str, Any]) -> str:
-    """Convert dict to TOML format for testing."""
-    lines = []
-    for key, value in data.items():
-        if value is None or value == "null":
-            continue  # Skip null values in TOML
-        elif isinstance(value, bool):
-            lines.append(f"{key} = {str(value).lower()}")
-        elif isinstance(value, (int, float)):
-            lines.append(f"{key} = {value}")
-        elif isinstance(value, str):
-            lines.append(f'{key} = "{value}"')
-    return "\n".join(lines)
+def to_json(data: dict[str, Any]) -> str:
+    """Convert dict to JSON format for testing."""
+    import json
+
+    return json.dumps(data)
 
 
 @pytest.mark.unit
@@ -46,7 +38,7 @@ class TestOllamaConnection:
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
-        assert classifier.model == "llama3.2:1b"
+        assert classifier.model == "llama3.2:3b"
         assert classifier.base_url == "http://localhost:11434"
         assert classifier.timeout == DEFAULT_TIMEOUT
         assert classifier.max_retries == DEFAULT_MAX_RETRIES
@@ -111,14 +103,14 @@ class TestPromptGeneration:
         assert "actionable" in prompt.lower() or "action" in prompt.lower()
 
     @pytest.mark.asyncio
-    async def test_prompt_includes_toml_format_instructions(self) -> None:
-        """Test that prompt includes TOML format instructions."""
+    async def test_prompt_includes_json_format_instructions(self) -> None:
+        """Test that prompt includes JSON format instructions."""
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
         prompt = classifier._generate_prompt("test text")
 
-        assert "toml" in prompt.lower()
+        assert "json" in prompt.lower()
         assert "is_task" in prompt.lower()
         assert "confidence" in prompt.lower()
 
@@ -164,11 +156,12 @@ class TestResponseParsing:
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
-        response = """is_task = true
-confidence = 0.95
-description = "Buy groceries"
-priority = "high"
-"""
+        response = """{
+    "is_task": true,
+    "confidence": 0.95,
+    "description": "Buy groceries",
+    "priority": "high"
+}"""
 
         result = classifier._parse_response(response)
 
@@ -183,9 +176,10 @@ priority = "high"
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
-        response = """is_task = false
-confidence = 0.85
-"""
+        response = """{
+    "is_task": false,
+    "confidence": 0.85
+}"""
 
         result = classifier._parse_response(response)
 
@@ -201,12 +195,13 @@ confidence = 0.85
 
         classifier = LLMClassifier()
         due_date_str = (datetime.now() + timedelta(days=1)).isoformat()
-        response = f"""is_task = true
-confidence = 0.9
-description = "Submit report"
-priority = "medium"
-due_date = "{due_date_str}"
-"""
+        response = f"""{{
+    "is_task": true,
+    "confidence": 0.9,
+    "description": "Submit report",
+    "priority": "medium",
+    "due_date": "{due_date_str}"
+}}"""
 
         result = classifier._parse_response(response)
 
@@ -215,14 +210,14 @@ due_date = "{due_date_str}"
         assert isinstance(result.due_date, datetime)
 
     @pytest.mark.asyncio
-    async def test_parse_invalid_toml_raises_error(self) -> None:
-        """Test that invalid TOML raises ClassificationError."""
+    async def test_parse_invalid_json_raises_error(self) -> None:
+        """Test that invalid JSON raises ClassificationError."""
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
 
-        with pytest.raises(ClassificationError, match="Invalid TOML"):
-            classifier._parse_response("not valid toml [[[[")
+        with pytest.raises(ClassificationError, match="Invalid JSON|No JSON object"):
+            classifier._parse_response("not valid json {{{{")
 
     @pytest.mark.asyncio
     async def test_parse_missing_required_fields_raises_error(self) -> None:
@@ -230,7 +225,7 @@ due_date = "{due_date_str}"
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
-        response = "confidence = 0.9"  # Missing is_task
+        response = '{"confidence": 0.9}'  # Missing is_task
 
         with pytest.raises(ClassificationError, match="Missing required field"):
             classifier._parse_response(response)
@@ -241,11 +236,12 @@ due_date = "{due_date_str}"
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
-        response = """is_task = true
-confidence = 0.9
-description = "Test task"
-priority = "invalid_priority"
-"""
+        response = """{
+    "is_task": true,
+    "confidence": 0.9,
+    "description": "Test task",
+    "priority": "invalid_priority"
+}"""
 
         result = classifier._parse_response(response)
 
@@ -257,12 +253,13 @@ priority = "invalid_priority"
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
-        response = """is_task = true
-confidence = 0.9
-description = "Test task"
-priority = "high"
-due_date = "invalid date"
-"""
+        response = """{
+    "is_task": true,
+    "confidence": 0.9,
+    "description": "Test task",
+    "priority": "high",
+    "due_date": "invalid date"
+}"""
 
         result = classifier._parse_response(response)
 
@@ -274,12 +271,13 @@ due_date = "invalid date"
         from local_ai.task_management.llm_classifier import LLMClassifier
 
         classifier = LLMClassifier()
-        response = """is_task = true
-confidence = 0.9
-description = "Test task"
-priority = "high"
-extra_field = "extra_value"
-"""
+        response = """{
+    "is_task": true,
+    "confidence": 0.9,
+    "description": "Test task",
+    "priority": "high",
+    "extra_field": "extra_value"
+}"""
 
         result = classifier._parse_response(response)
 
@@ -300,14 +298,14 @@ class TestRetryLogic:
         call_count = 0
         retry_threshold = DEFAULT_MAX_RETRIES
 
-        async def mock_chat(*args, **kwargs):
+        async def mock_chat(*args: Any, **kwargs: Any) -> dict[str, Any]:
             nonlocal call_count
             call_count += 1
             if call_count < retry_threshold:
                 raise TimeoutError("Timeout")
             return {
                 "message": {
-                    "content": to_toml(
+                    "content": to_json(
                         {
                             "is_task": True,
                             "confidence": 0.9,
@@ -333,13 +331,13 @@ class TestRetryLogic:
         call_times = []
         retry_threshold = DEFAULT_MAX_RETRIES
 
-        async def mock_chat(*args, **kwargs):
+        async def mock_chat(*args: Any, **kwargs: Any) -> dict[str, Any]:
             call_times.append(asyncio.get_event_loop().time())
             if len(call_times) < retry_threshold:
                 raise TimeoutError("Timeout")
             return {
                 "message": {
-                    "content": to_toml(
+                    "content": to_json(
                         {
                             "is_task": True,
                             "confidence": 0.9,
@@ -383,12 +381,12 @@ class TestRetryLogic:
 
         call_count = 0
 
-        async def mock_chat(*args, **kwargs):
+        async def mock_chat(*args: Any, **kwargs: Any) -> dict[str, Any]:
             nonlocal call_count
             call_count += 1
             return {
                 "message": {
-                    "content": to_toml(
+                    "content": to_json(
                         {
                             "is_task": True,
                             "confidence": 0.9,
@@ -416,7 +414,7 @@ class TestTimeoutHandling:
 
         classifier = LLMClassifier(timeout=0.1, max_retries=1)
 
-        async def slow_response(*args, **kwargs):
+        async def slow_response(*args: Any, **kwargs: Any) -> dict[str, Any]:
             await asyncio.sleep(1.0)
             return {"message": {"content": "{}"}}
 
@@ -439,7 +437,7 @@ class TestTimeoutHandling:
 
         classifier = LLMClassifier(timeout=0.1, max_retries=1)
 
-        async def slow_response(*args, **kwargs):
+        async def slow_response(*args: Any, **kwargs: Any) -> dict[str, Any]:
             await asyncio.sleep(1.0)
             return {"message": {"content": "{}"}}
 
@@ -466,7 +464,7 @@ class TestClassificationIntegration:
 
         mock_response = {
             "message": {
-                "content": to_toml(
+                "content": to_json(
                     {
                         "is_task": True,
                         "confidence": 0.95,
@@ -496,7 +494,7 @@ class TestClassificationIntegration:
 
         mock_response = {
             "message": {
-                "content": to_toml(
+                "content": to_json(
                     {
                         "is_task": False,
                         "confidence": 0.9,
@@ -524,7 +522,7 @@ class TestClassificationIntegration:
 
         mock_response = {
             "message": {
-                "content": to_toml(
+                "content": to_json(
                     {
                         "is_task": False,
                         "confidence": 0.6,
@@ -560,7 +558,7 @@ class TestClassificationIntegration:
 
         mock_response = {
             "message": {
-                "content": to_toml(
+                "content": to_json(
                     {
                         "is_task": True,
                         "confidence": 0.9,
