@@ -1,7 +1,5 @@
 """Noise reduction engine implementation using spectral subtraction."""
 
-from typing import Optional
-
 import numpy as np
 from scipy import signal
 
@@ -10,14 +8,16 @@ from .models import NoiseType
 
 
 class NoiseReductionEngine(NoiseReductionInterface):
-    """Noise reduction engine using spectral subtraction and adaptive filtering.
+    """
+    Noise reduction engine using spectral subtraction and adaptive filtering.
 
     Implements FFT-based spectral analysis for noise profiling and basic
     spectral subtraction algorithm for stationary noise removal.
     """
 
     def __init__(self, sample_rate: int, aggressiveness: float = 0.5) -> None:
-        """Initialize the noise reduction engine.
+        """
+        Initialize the noise reduction engine.
 
         Args:
             sample_rate: Audio sample rate in Hz
@@ -27,7 +27,7 @@ class NoiseReductionEngine(NoiseReductionInterface):
         self.aggressiveness = max(0.0, min(1.0, aggressiveness))
 
         # Noise profile storage
-        self.noise_profile: Optional[np.ndarray] = None
+        self.noise_profile: np.ndarray | None = None
         self.noise_profile_count = 0
         self.adaptation_rate = 0.1
 
@@ -39,7 +39,7 @@ class NoiseReductionEngine(NoiseReductionInterface):
         self.use_wiener_filter = True
         self.wiener_alpha = 0.98  # Smoothing factor for Wiener coefficients
         self.speech_presence_threshold = 0.5
-        self.previous_wiener_gain: Optional[np.ndarray] = None
+        self.previous_wiener_gain: np.ndarray | None = None
 
         # FFT parameters
         self.fft_size = 512
@@ -55,7 +55,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
         self.last_noise_reduction_db = 0.0
 
     def update_noise_profile(self, audio_data: np.ndarray) -> None:
-        """Update the noise profile based on audio data.
+        """
+        Update the noise profile based on audio data.
 
         Learns noise characteristics during silent periods for adaptive filtering.
 
@@ -86,7 +87,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
             self.noise_profile_count += 1
 
     def reduce_noise(self, audio_data: np.ndarray) -> np.ndarray:
-        """Apply noise reduction to audio data using spectral subtraction.
+        """
+        Apply noise reduction to audio data using spectral subtraction.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -133,7 +135,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
         return output[: len(audio_data)]
 
     def _spectral_subtraction(self, magnitude: np.ndarray) -> np.ndarray:
-        """Apply spectral subtraction algorithm.
+        """
+        Apply spectral subtraction algorithm.
 
         Args:
             magnitude: Magnitude spectrum of the noisy signal
@@ -158,7 +161,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
         return enhanced_magnitude
 
     def _adaptive_wiener_filter(self, magnitude: np.ndarray) -> np.ndarray:
-        """Apply adaptive Wiener filtering for speech preservation.
+        """
+        Apply adaptive Wiener filtering for speech preservation.
 
         Args:
             magnitude: Magnitude spectrum of the noisy signal
@@ -209,7 +213,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
     def _estimate_prior_snr(
         self, signal_power: np.ndarray, noise_power: np.ndarray
     ) -> np.ndarray:
-        """Estimate a priori SNR for Wiener filtering.
+        """
+        Estimate a priori SNR for Wiener filtering.
 
         Args:
             signal_power: Estimated signal power spectrum
@@ -231,7 +236,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
     def _estimate_speech_presence(
         self, signal_power: np.ndarray, noise_power: np.ndarray
     ) -> np.ndarray:
-        """Estimate speech presence probability.
+        """
+        Estimate speech presence probability.
 
         Args:
             signal_power: Signal power spectrum
@@ -255,7 +261,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
     def _calculate_wiener_gain(
         self, snr_prior: np.ndarray, speech_prob: np.ndarray
     ) -> np.ndarray:
-        """Calculate Wiener filter gain coefficients.
+        """
+        Calculate Wiener filter gain coefficients.
 
         Args:
             snr_prior: A priori SNR estimate
@@ -283,7 +290,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
         return final_gain
 
     def detect_noise_type(self, audio_data: np.ndarray) -> NoiseType:
-        """Detect the type of noise present in the audio.
+        """
+        Detect the type of noise present in the audio.
 
         Args:
             audio_data: Audio data to analyze
@@ -319,8 +327,7 @@ class NoiseReductionEngine(NoiseReductionInterface):
 
             if harmonic_count >= self.mechanical_harmonic_threshold:
                 return NoiseType.MECHANICAL
-            else:
-                return NoiseType.STATIONARY
+            return NoiseType.STATIONARY
 
         # Check for speech-like characteristics
         if self._detect_speech_characteristics(freqs, psd):
@@ -329,7 +336,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
         return NoiseType.MIXED
 
     def _measure_stationarity(self, audio_data: np.ndarray) -> float:
-        """Measure the stationarity of the audio signal.
+        """
+        Measure the stationarity of the audio signal.
 
         Args:
             audio_data: Audio data to analyze
@@ -374,7 +382,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
         return np.mean(correlations) if correlations else 0.5
 
     def _count_harmonics(self, freqs: np.ndarray, psd: np.ndarray) -> int:
-        """Count harmonic peaks in the power spectral density.
+        """
+        Count harmonic peaks in the power spectral density.
 
         Args:
             freqs: Frequency array
@@ -405,7 +414,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
         return harmonic_count
 
     def _detect_speech_characteristics(self, freqs: np.ndarray, psd: np.ndarray) -> bool:
-        """Detect if the signal has speech-like characteristics.
+        """
+        Detect if the signal has speech-like characteristics.
 
         Args:
             freqs: Frequency array
@@ -437,7 +447,8 @@ class NoiseReductionEngine(NoiseReductionInterface):
     def _calculate_noise_reduction(
         self, original: np.ndarray, enhanced: np.ndarray
     ) -> None:
-        """Calculate the noise reduction achieved in dB.
+        """
+        Calculate the noise reduction achieved in dB.
 
         Args:
             original: Original noisy audio
@@ -463,9 +474,17 @@ class NoiseReductionEngine(NoiseReductionInterface):
             self.last_noise_reduction_db = 0.0
 
     def get_noise_reduction_db(self) -> float:
-        """Get the current noise reduction level in dB.
+        """
+        Get the current noise reduction level in dB.
 
         Returns:
             Noise reduction level in decibels
         """
         return self.last_noise_reduction_db
+
+    def reset(self) -> None:
+        """Reset the filter state and adaptive parameters."""
+        self.noise_profile = None
+        self.noise_profile_count = 0
+        self.previous_wiener_gain = None
+        self.last_noise_reduction_db = 0.0

@@ -293,14 +293,6 @@ def handle_arguments(args: argparse.Namespace) -> tuple[bool, bool]:
     return True, True
 
 
-def cli_entry() -> None:
-    """Synchronous entry point for CLI script."""
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        pass  # Final catch for any remaining KeyboardInterrupt
-
-
 def cli_entry_with_args() -> None:
     """CLI entry point with argument parsing."""
     parser = create_argument_parser()

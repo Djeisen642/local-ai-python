@@ -1,6 +1,5 @@
 """SpectralEnhancer implementation for frequency domain audio processing."""
 
-from typing import Optional
 
 import numpy as np
 from scipy import signal
@@ -9,7 +8,8 @@ from .interfaces import SpectralEnhancerInterface
 
 
 class SpectralEnhancer(SpectralEnhancerInterface):
-    """Frequency domain processing for speech enhancement and noise reduction.
+    """
+    Frequency domain processing for speech enhancement and noise reduction.
 
     This class implements various spectral enhancement techniques including:
     - High-pass filtering for low-frequency noise removal
@@ -19,7 +19,8 @@ class SpectralEnhancer(SpectralEnhancerInterface):
     """
 
     def __init__(self, sample_rate: int = 16000):
-        """Initialize SpectralEnhancer.
+        """
+        Initialize SpectralEnhancer.
 
         Args:
             sample_rate: Audio sample rate in Hz
@@ -102,7 +103,8 @@ class SpectralEnhancer(SpectralEnhancerInterface):
                     self.speech_enhancement_curve[i] = 1.0
 
     def enhance_speech_frequencies(self, audio_data: np.ndarray) -> np.ndarray:
-        """Enhance speech frequency bands for better clarity.
+        """
+        Enhance speech frequency bands for better clarity.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -163,7 +165,8 @@ class SpectralEnhancer(SpectralEnhancerInterface):
     def apply_high_pass_filter(
         self, audio_data: np.ndarray, cutoff: float = 80.0
     ) -> np.ndarray:
-        """Apply high-pass filter to remove low-frequency noise.
+        """
+        Apply high-pass filter to remove low-frequency noise.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -194,7 +197,8 @@ class SpectralEnhancer(SpectralEnhancerInterface):
         return filtered.astype(audio_data.dtype)
 
     def reduce_echo(self, audio_data: np.ndarray) -> np.ndarray:
-        """Reduce echo and reverberation in audio data.
+        """
+        Reduce echo and reverberation in audio data.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -310,7 +314,8 @@ class SpectralEnhancer(SpectralEnhancerInterface):
         return enhanced_magnitude
 
     def suppress_transients(self, audio_data: np.ndarray) -> np.ndarray:
-        """Suppress transient noises like keyboard clicks and pops.
+        """
+        Suppress transient noises like keyboard clicks and pops.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -464,25 +469,24 @@ class SpectralEnhancer(SpectralEnhancerInterface):
             suppressed_frame = np.real(np.fft.ifft(suppressed_fft))
 
             return suppressed_frame
-        else:
-            # Light processing for normal audio
-            # Apply gentle high-frequency roll-off to reduce click artifacts
-            fft_frame = np.fft.fft(frame)
-            magnitude = np.abs(fft_frame)
-            phase = np.angle(fft_frame)
+        # Light processing for normal audio
+        # Apply gentle high-frequency roll-off to reduce click artifacts
+        fft_frame = np.fft.fft(frame)
+        magnitude = np.abs(fft_frame)
+        phase = np.angle(fft_frame)
 
-            # Gentle high-frequency attenuation
-            freqs = np.fft.fftfreq(len(frame), 1 / self.sample_rate)
-            hf_rolloff = np.ones_like(magnitude)
+        # Gentle high-frequency attenuation
+        freqs = np.fft.fftfreq(len(frame), 1 / self.sample_rate)
+        hf_rolloff = np.ones_like(magnitude)
 
-            # Attenuate frequencies above 4kHz slightly
-            hf_mask = np.abs(freqs) > 4000
-            hf_rolloff[hf_mask] = 0.95  # Less aggressive
+        # Attenuate frequencies above 4kHz slightly
+        hf_mask = np.abs(freqs) > 4000
+        hf_rolloff[hf_mask] = 0.95  # Less aggressive
 
-            processed_magnitude = magnitude * hf_rolloff
+        processed_magnitude = magnitude * hf_rolloff
 
-            # Reconstruct
-            processed_fft = processed_magnitude * np.exp(1j * phase)
-            processed_frame = np.real(np.fft.ifft(processed_fft))
+        # Reconstruct
+        processed_fft = processed_magnitude * np.exp(1j * phase)
+        processed_frame = np.real(np.fft.ifft(processed_fft))
 
-            return processed_frame
+        return processed_frame

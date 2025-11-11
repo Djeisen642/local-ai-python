@@ -45,7 +45,6 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-vvv"
 testpaths = "tests"
 asyncio_mode = "auto"
 markers = [
@@ -55,8 +54,9 @@ markers = [
 ]
 
 # Parallel execution configuration
-# Use auto for CPU count detection, or specify number of workers
-# For coverage with parallel execution, use --cov-append
+# Limit workers for unit tests to avoid resource conflicts
+# Use -n 2 for unit tests, -n 2 for integration tests
+addopts = "--strict-markers"
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning"

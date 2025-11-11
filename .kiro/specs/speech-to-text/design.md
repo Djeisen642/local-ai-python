@@ -379,7 +379,6 @@ MAX_SEGMENT_DURATION = 30.0  # seconds - force transcription of very long segmen
 
 # Adaptive Behavior
 SILENCE_ADAPTATION_FACTOR = 0.1  # How quickly to adapt to speaker patterns
-NOISE_COMPENSATION_THRESHOLD = 0.02  # Adjust VAD sensitivity based on background noise
 ```
 
 ## Integration with Future Systems

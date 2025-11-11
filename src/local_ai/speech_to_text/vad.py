@@ -77,7 +77,6 @@ class VoiceActivityDetector:
 
         # Natural break detection state
         self._silence_start_time: float | None = None
-        self._last_speech_time: float | None = None
         self._speech_segment_start_time: float | None = None
         self._is_in_speech_segment = False
 
@@ -240,7 +239,6 @@ class VoiceActivityDetector:
             self._record_pause_duration(pause_duration)
 
         self._silence_start_time = None
-        self._last_speech_time = current_time
 
         # Start speech segment if not already started
         if not self._is_in_speech_segment:

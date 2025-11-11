@@ -1,6 +1,5 @@
 """Audio normalization and gain control implementation."""
 
-from typing import Optional
 
 import numpy as np
 
@@ -9,7 +8,8 @@ from .models import FilterStats
 
 
 class AudioNormalizer(AudioNormalizerInterface):
-    """Audio normalization and automatic gain control implementation.
+    """
+    Audio normalization and automatic gain control implementation.
 
     Provides RMS level detection, automatic gain control with attack/release timing,
     peak limiting, and dynamic range compression for consistent audio levels.
@@ -25,7 +25,8 @@ class AudioNormalizer(AudioNormalizerInterface):
         release_time: float = 0.1,  # 100ms
         sample_rate: int = 16000,
     ):
-        """Initialize AudioNormalizer.
+        """
+        Initialize AudioNormalizer.
 
         Args:
             target_level: Target RMS level in dB
@@ -63,7 +64,8 @@ class AudioNormalizer(AudioNormalizerInterface):
         self.signal_enhancement_db = 0.0
 
     def normalize_audio(self, audio_data: np.ndarray) -> np.ndarray:
-        """Normalize audio levels for optimal processing.
+        """
+        Normalize audio levels for optimal processing.
 
         Applies automatic gain control, dynamic range compression, and peak limiting.
 
@@ -88,7 +90,8 @@ class AudioNormalizer(AudioNormalizerInterface):
         return limited_audio
 
     def apply_agc(self, audio_data: np.ndarray) -> np.ndarray:
-        """Apply automatic gain control to audio data.
+        """
+        Apply automatic gain control to audio data.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -176,7 +179,8 @@ class AudioNormalizer(AudioNormalizerInterface):
         return output_audio
 
     def compress_dynamic_range(self, audio_data: np.ndarray) -> np.ndarray:
-        """Apply dynamic range compression to audio data.
+        """
+        Apply dynamic range compression to audio data.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -225,7 +229,8 @@ class AudioNormalizer(AudioNormalizerInterface):
         return output_audio
 
     def _apply_peak_limiter(self, audio_data: np.ndarray) -> np.ndarray:
-        """Apply peak limiting to prevent clipping.
+        """
+        Apply peak limiting to prevent clipping.
 
         Args:
             audio_data: Input audio data as numpy array
@@ -269,7 +274,8 @@ class AudioNormalizer(AudioNormalizerInterface):
         return output_audio
 
     def get_current_level(self) -> float:
-        """Get the current audio level.
+        """
+        Get the current audio level.
 
         Returns:
             Current audio level in dB
@@ -277,7 +283,8 @@ class AudioNormalizer(AudioNormalizerInterface):
         return self.current_level
 
     def get_filter_stats(self) -> FilterStats:
-        """Get statistics about the filtering performance.
+        """
+        Get statistics about the filtering performance.
 
         Returns:
             FilterStats containing performance metrics

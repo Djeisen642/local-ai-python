@@ -1,5 +1,7 @@
 """Audio filtering and enhancement module for speech-to-text processing."""
 
+from .adaptive_processor import AdaptiveProcessor
+from .audio_filter_pipeline import AudioFilterPipeline
 from .audio_normalizer import AudioNormalizer
 from .interfaces import (
     AdaptiveProcessorInterface,
@@ -10,6 +12,7 @@ from .interfaces import (
 )
 from .models import AudioProfile, FilterStats, NoiseType
 from .noise_reduction import NoiseReductionEngine
+from .performance_monitor import AudioFilterPerformanceMonitor
 from .spectral_enhancer import SpectralEnhancer
 
 __all__ = [
@@ -21,7 +24,10 @@ __all__ = [
     "AudioNormalizerInterface",
     "SpectralEnhancerInterface",
     "AdaptiveProcessorInterface",
+    "AdaptiveProcessor",
     "NoiseReductionEngine",
     "AudioNormalizer",
     "SpectralEnhancer",
+    "AudioFilterPipeline",
+    "AudioFilterPerformanceMonitor",
 ]

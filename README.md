@@ -210,21 +210,21 @@ The project uses pytest with parallel execution support for faster testing:
 
 ```bash
 # Run all tests in parallel
-pytest -n auto
+pytest -n 2
 
 # Run with coverage
-pytest -n auto --cov=src --cov-report=html --cov-fail-under=90
+pytest -n 2 --cov=src --cov-report=html --cov-fail-under=90
 
 # Run specific test categories
-pytest -n auto -m unit            # Fast unit tests only
-pytest -n auto -m integration     # Integration tests only
-pytest -n auto -m performance     # Performance benchmarks
+pytest -n 2 -m unit            # Fast unit tests only
+pytest -n 2 -m integration     # Integration tests only
+pytest -n 2 -m performance     # Performance benchmarks
 
 # Recommended workflow: run unit tests first, then integration
-pytest -n auto -m unit && pytest -n auto -m integration
+pytest -n 2 -m unit && pytest -n 2 -m integration
 
 # TDD workflow (stop on first failure)
-pytest -n auto -x --cov=src
+pytest -n 2 -x --cov=src
 ```
 
 ### Code Quality

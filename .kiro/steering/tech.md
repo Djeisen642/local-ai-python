@@ -56,27 +56,27 @@ uv pip install -e .[dev]
 
 ```bash
 # Run all tests in parallel (faster execution)
-pytest -n auto
+pytest -n 2
 
 # Run with coverage (required for all development)
 pytest --cov=src --cov-report=html --cov-fail-under=90
 
 # Run with coverage in parallel (combines coverage from all workers)
-pytest -n auto --cov=src --cov-report=html --cov-fail-under=90
+pytest -n 2 --cov=src --cov-report=html --cov-fail-under=90
 
 # Run test categories in parallel
-pytest -n auto -m unit            # Unit tests in parallel
-pytest -n auto -m integration     # Integration tests in parallel
+pytest -n 2 -m unit            # Unit tests in parallel
+pytest -n 2 -m integration     # Integration tests in parallel
 
 pytest -m performance             # Performance benchmarks not in parallel
 
 # TDD workflow
 pytest -x --cov=src                         # Stop on first failure
 pytest --cov=src --cov-report=term-missing  # Show missing coverage lines
-pytest -n auto -x                           # Parallel with stop on first failure
+pytest -n 2 -x                           # Parallel with stop on first failure
 
 # Recommended parallel workflow
-pytest -n auto -m unit && pytest -n auto -m integration  # Run unit tests first, then integration
+pytest -n 2 -m unit && pytest -n 2 -m integration  # Run unit tests first, then integration
 ```
 
 ### Code Quality

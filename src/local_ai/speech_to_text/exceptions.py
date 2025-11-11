@@ -23,27 +23,3 @@ class TranscriptionError(SpeechToTextError):
     """Exception raised for transcription related errors."""
 
     pass
-
-
-class ModelNotAvailableError(TranscriptionError):
-    """Exception raised when the transcription model is not available."""
-
-    pass
-
-
-class VoiceActivityDetectionError(SpeechToTextError):
-    """Exception raised for VAD related errors."""
-
-    pass
-
-
-class OptimizationError(SpeechToTextError):
-    """Exception raised for optimization related errors."""
-
-    pass
-
-
-class PerformanceMonitoringError(SpeechToTextError):
-    """Exception raised for performance monitoring related errors."""
-
-    pass

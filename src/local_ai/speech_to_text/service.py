@@ -28,6 +28,7 @@ class SpeechToTextService:
         enable_monitoring: bool = False,
         use_cache: bool = True,
         force_cpu: bool = False,
+        enable_filtering: bool = False,
     ) -> None:
         """
         Initialize the speech-to-text service.
@@ -37,6 +38,9 @@ class SpeechToTextService:
             enable_monitoring: Whether to enable performance monitoring (adds overhead)
             use_cache: Whether to use cached optimization data
             force_cpu: Whether to force CPU-only mode (disable GPU/CUDA)
+            enable_filtering: Whether to enable audio filtering pipeline (disabled by
+                default due to performance overhead with minimal accuracy improvement
+                on clean audio - see docs/audio-filtering-evaluation.md)
         """
         self._listening = False
         self._transcription_result_callback: (
@@ -48,6 +52,10 @@ class SpeechToTextService:
         self._audio_capture: AudioCapture | None = None
         self._vad: VoiceActivityDetector | None = None
         self._transcriber: WhisperTranscriber | None = None
+
+        # Audio filtering
+        self._enable_filtering = enable_filtering
+        self._audio_filter_pipeline: Any | None = None
 
         # Processing state
         self._processing_task: asyncio.Task | None = None
@@ -92,15 +100,38 @@ class SpeechToTextService:
             vad_config = self._optimizer.get_optimized_vad_config()
             transcriber_config = self._optimizer.get_optimized_transcriber_config()
 
-            # Initialize audio capture with optimized settings
+            # Initialize audio capture with optimized settings and filtering
             self._audio_capture = AudioCapture(
                 sample_rate=audio_config["sample_rate"],
                 chunk_size=audio_config["chunk_size"],
+                enable_filtering=self._enable_filtering,
             )
             logger.debug(
                 f"Audio capture: sample_rate={audio_config['sample_rate']}, "
-                f"chunk_size={audio_config['chunk_size']}"
+                f"chunk_size={audio_config['chunk_size']}, "
+                f"filtering={'enabled' if self._enable_filtering else 'disabled'}"
             )
+
+            # Initialize audio filtering pipeline if enabled
+            if self._enable_filtering:
+                try:
+                    from .audio_filtering.audio_filter_pipeline import AudioFilterPipeline
+
+                    self._audio_filter_pipeline = AudioFilterPipeline(
+                        sample_rate=audio_config["sample_rate"],
+                        enable_filtering=True,
+                    )
+                    # Set the filter pipeline in audio capture
+                    self._audio_capture.set_audio_filter(self._audio_filter_pipeline)
+                    logger.debug("Audio filtering pipeline initialized")
+                except ImportError as e:
+                    logger.warning(f"Audio filtering not available: {e}")
+                    self._enable_filtering = False
+                    self._audio_filter_pipeline = None
+                except Exception as e:
+                    logger.error(f"Failed to initialize audio filtering: {e}")
+                    self._enable_filtering = False
+                    self._audio_filter_pipeline = None
 
             # Initialize voice activity detector with optimized settings
             self._vad = VoiceActivityDetector(
@@ -396,6 +427,7 @@ class SpeechToTextService:
             "transcriber": self._transcriber is not None
             and self._transcriber.is_model_available(),
             "listening": self._listening,
+            "filtering": self.is_filtering_enabled(),
         }
 
     def get_performance_stats(self, time_window: float | None = None) -> dict:
@@ -427,6 +459,47 @@ class SpeechToTextService:
         """Reset all performance metrics."""
         if self._monitoring_enabled and self._performance_monitor:
             self._performance_monitor.reset_metrics()
+
+    def set_noise_profile(self, noise_sample: bytes) -> None:
+        """
+        Set noise profile for adaptive filtering.
+
+        Args:
+            noise_sample: Audio sample containing noise to profile
+        """
+        if self._audio_filter_pipeline:
+            self._audio_filter_pipeline.set_noise_profile(noise_sample)
+            logger.debug("Noise profile updated")
+        else:
+            logger.warning("Audio filtering not available for noise profile setting")
+
+    def get_filter_stats(self) -> dict[str, Any]:
+        """
+        Get audio filtering statistics.
+
+        Returns:
+            Dictionary with filtering performance statistics
+        """
+        if self._audio_filter_pipeline:
+            return self._audio_filter_pipeline.get_filter_stats()
+        return {"filtering_disabled": True}
+
+    def reset_adaptive_filters(self) -> None:
+        """Reset adaptive filtering parameters."""
+        if self._audio_filter_pipeline:
+            self._audio_filter_pipeline.reset_adaptive_filters()
+            logger.debug("Adaptive filters reset")
+        else:
+            logger.warning("Audio filtering not available for filter reset")
+
+    def is_filtering_enabled(self) -> bool:
+        """
+        Check if audio filtering is enabled and available.
+
+        Returns:
+            True if filtering is enabled and available, False otherwise
+        """
+        return self._enable_filtering and self._audio_filter_pipeline is not None
 
     async def _process_audio_pipeline(self) -> None:
         """
@@ -473,8 +546,8 @@ class SpeechToTextService:
         try:
             while self._listening:
                 try:
-                    # Get audio chunk from capture
-                    audio_chunk = self._audio_capture.get_audio_chunk()
+                    # Get audio chunk from capture (now async for filtering support)
+                    audio_chunk = await self._audio_capture.get_audio_chunk()
 
                     if audio_chunk is None:
                         # No audio available, wait a bit

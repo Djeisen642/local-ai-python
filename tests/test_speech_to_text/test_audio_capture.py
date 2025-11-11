@@ -117,15 +117,15 @@ class TestAudioCapture:
         mock_stream.close.assert_called_once()
         mock_pa_instance.terminate.assert_called_once()
 
-    def test_get_audio_chunk_not_capturing(self) -> None:
+    async def test_get_audio_chunk_not_capturing(self) -> None:
         """Test get_audio_chunk returns None when not capturing."""
         capture = AudioCapture()
-        chunk = capture.get_audio_chunk()
+        chunk = await capture.get_audio_chunk()
 
         assert chunk is None
 
     @patch("pyaudio.PyAudio")
-    def test_get_audio_chunk_no_data_available(self, mock_pyaudio: Mock) -> None:
+    async def test_get_audio_chunk_no_data_available(self, mock_pyaudio: Mock) -> None:
         """Test get_audio_chunk returns None when no data available."""
         mock_pa_instance = Mock()
         mock_pyaudio.return_value = mock_pa_instance
@@ -135,12 +135,12 @@ class TestAudioCapture:
 
         capture = AudioCapture()
         capture.start_capture()
-        chunk = capture.get_audio_chunk()
+        chunk = await capture.get_audio_chunk()
 
         assert chunk is None
 
     @patch("pyaudio.PyAudio")
-    def test_get_audio_chunk_with_data(self, mock_pyaudio: Mock) -> None:
+    async def test_get_audio_chunk_with_data(self, mock_pyaudio: Mock) -> None:
         """Test get_audio_chunk returns audio data when available."""
         mock_pa_instance = Mock()
         mock_pyaudio.return_value = mock_pa_instance
@@ -153,13 +153,13 @@ class TestAudioCapture:
 
         capture = AudioCapture()
         capture.start_capture()
-        chunk = capture.get_audio_chunk()
+        chunk = await capture.get_audio_chunk()
 
         assert chunk == expected_data
         assert len(chunk) == 2048  # 1024 samples * 2 bytes
 
     @patch("pyaudio.PyAudio")
-    def test_get_audio_chunk_format_validation(self, mock_pyaudio: Mock) -> None:
+    async def test_get_audio_chunk_format_validation(self, mock_pyaudio: Mock) -> None:
         """Test get_audio_chunk validates audio format."""
         mock_pa_instance = Mock()
         mock_pyaudio.return_value = mock_pa_instance
@@ -172,14 +172,14 @@ class TestAudioCapture:
 
         capture = AudioCapture()
         capture.start_capture()
-        chunk = capture.get_audio_chunk()
+        chunk = await capture.get_audio_chunk()
 
         # Verify the chunk is bytes and has expected length
         assert isinstance(chunk, bytes)
         assert len(chunk) == capture.chunk_size * 2  # 2 bytes per sample for 16-bit
 
     @patch("pyaudio.PyAudio")
-    def test_get_audio_chunk_stream_error(self, mock_pyaudio: Mock) -> None:
+    async def test_get_audio_chunk_stream_error(self, mock_pyaudio: Mock) -> None:
         """Test get_audio_chunk handles stream read errors."""
         mock_pa_instance = Mock()
         mock_pyaudio.return_value = mock_pa_instance
@@ -191,7 +191,7 @@ class TestAudioCapture:
         capture.start_capture()
 
         with pytest.raises(AudioCaptureError, match="Failed to read audio"):
-            capture.get_audio_chunk()
+            await capture.get_audio_chunk()
 
     def test_microphone_detection(self) -> None:
         """Test microphone detection functionality."""

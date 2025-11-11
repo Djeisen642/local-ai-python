@@ -9,6 +9,7 @@ import pyaudio
 from .config import DEFAULT_CHUNK_SIZE, DEFAULT_SAMPLE_RATE
 from .exceptions import AudioCaptureError, MicrophoneNotFoundError
 from .logging_utils import get_logger
+from .models import AudioChunk
 
 logger = get_logger(__name__)
 
@@ -16,16 +17,24 @@ logger = get_logger(__name__)
 class AudioCapture:
     """Manages microphone input and audio streaming."""
 
-    def __init__(self, sample_rate: int = None, chunk_size: int = None) -> None:
+    def __init__(
+        self,
+        sample_rate: int = None,
+        chunk_size: int = None,
+        enable_filtering: bool = False,
+    ) -> None:
         """
         Initialize audio capture with specified parameters.
 
         Args:
             sample_rate: Audio sample rate in Hz
             chunk_size: Number of samples per chunk
+            enable_filtering: Whether to enable audio filtering pipeline (disabled by
+                default - see docs/audio-filtering-evaluation.md)
         """
         self.sample_rate = sample_rate if sample_rate is not None else DEFAULT_SAMPLE_RATE
         self.chunk_size = chunk_size if chunk_size is not None else DEFAULT_CHUNK_SIZE
+        self._enable_filtering = enable_filtering
 
         if self.sample_rate <= 0:
             raise ValueError("Sample rate must be positive")
@@ -34,7 +43,9 @@ class AudioCapture:
         self._capturing = False
         self._pyaudio = None
         self._stream = None
-        self._capture_thread = None
+
+        # Audio filtering pipeline
+        self._audio_filter: Any | None = None
 
         # Debug tracking
         self._audio_chunks_received = 0
@@ -137,9 +148,9 @@ class AudioCapture:
             self._pyaudio.terminate()
             self._pyaudio = None
 
-    def get_audio_chunk(self) -> bytes | None:
+    async def get_audio_chunk(self) -> bytes | None:
         """
-        Get the next audio chunk if available.
+        Get the next audio chunk if available, with optional filtering.
 
         Returns:
             Audio chunk data or None if no data available
@@ -176,6 +187,33 @@ class AudioCapture:
                             logger.trace(
                                 f"🎵 Audio activity detected: level={audio_level:.3f}"
                             )
+
+                        # Apply audio filtering if enabled
+                        if self._enable_filtering and self._audio_filter:
+                            try:
+                                # Create AudioChunk for filtering
+                                audio_chunk = AudioChunk(
+                                    data=data,
+                                    timestamp=current_time,
+                                    sample_rate=self.sample_rate,
+                                    duration=self.chunk_size / self.sample_rate,
+                                    is_filtered=False,
+                                )
+
+                                # Process through filter pipeline
+                                filtered_chunk = (
+                                    await self._audio_filter.process_audio_chunk(
+                                        audio_chunk
+                                    )
+                                )
+                                return filtered_chunk.data
+
+                            except Exception as e:
+                                logger.warning(
+                                    f"⚠️ Audio filtering failed, using unfiltered audio: {e}"
+                                )
+                                # Graceful fallback to unfiltered audio
+                                return data
 
                         return data
                 except OSError as e:
@@ -266,6 +304,35 @@ class AudioCapture:
             logger.trace(f"Error calculating audio level: {e}")
             return 0.0
 
+    def set_audio_filter(self, audio_filter: Any) -> None:
+        """
+        Set the audio filtering pipeline.
+
+        Args:
+            audio_filter: AudioFilterPipeline instance for processing audio
+        """
+        self._audio_filter = audio_filter
+        logger.debug("Audio filter pipeline set")
+
+    def enable_filtering(self, enabled: bool) -> None:
+        """
+        Enable or disable audio filtering.
+
+        Args:
+            enabled: Whether to enable audio filtering
+        """
+        self._enable_filtering = enabled
+        logger.debug(f"Audio filtering {'enabled' if enabled else 'disabled'}")
+
+    def is_filtering_enabled(self) -> bool:
+        """
+        Check if audio filtering is enabled.
+
+        Returns:
+            True if filtering is enabled, False otherwise
+        """
+        return self._enable_filtering and self._audio_filter is not None
+
     def get_debug_stats(self) -> dict[str, Any]:
         """
         Get debug statistics about audio capture.
@@ -280,4 +347,6 @@ class AudioCapture:
             "chunks_received": self._audio_chunks_received,
             "stream_active": self._stream.is_active() if self._stream else False,
             "pyaudio_initialized": self._pyaudio is not None,
+            "filtering_enabled": self._enable_filtering,
+            "filter_available": self._audio_filter is not None,
         }

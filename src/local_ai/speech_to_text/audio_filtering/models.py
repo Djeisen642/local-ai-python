@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
 
 
 class NoiseType(Enum):
@@ -22,7 +21,7 @@ class FilterStats:
     noise_reduction_db: float
     signal_enhancement_db: float
     processing_latency_ms: float
-    filters_applied: List[str]
+    filters_applied: list[str]
     audio_quality_score: float
 
 
@@ -31,7 +30,7 @@ class AudioProfile:
     """Profile of audio characteristics for adaptive filtering."""
 
     snr_db: float
-    dominant_frequencies: List[float]
+    dominant_frequencies: list[float]
     noise_type: NoiseType
     speech_presence: float
-    recommended_filters: List[str]
+    recommended_filters: list[str]

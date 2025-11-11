@@ -62,9 +62,6 @@ def get_cache_size(cache_path: Path) -> int:
         pass
 
     return total_size
-
-
-def format_cache_size(size_bytes: int) -> str:
     """
     Format cache size in human-readable format.
 

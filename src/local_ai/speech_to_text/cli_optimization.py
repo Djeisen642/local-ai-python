@@ -8,25 +8,12 @@ from .cache_utils import (
     get_cache_size,
     get_whisper_cache_dir,
 )
-from .config import BYTES_PER_KB
 from .optimization import (
     clear_optimization_cache,
     get_cache_info,
     get_optimized_config,
     get_optimizer,
 )
-
-
-def format_size(size_bytes: int) -> str:
-    """Format size in bytes to human readable format."""
-    if size_bytes == 0:
-        return "0 B"
-
-    for unit in ["B", "KB", "MB", "GB"]:
-        if size_bytes < BYTES_PER_KB:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes /= BYTES_PER_KB
-    return f"{size_bytes:.1f} TB"
 
 
 def cmd_info(args: argparse.Namespace) -> None:
@@ -180,7 +167,7 @@ def cmd_test_optimization(args: argparse.Namespace) -> None:
     passed = 0
     total = len(tests)
 
-    for test_name, test_func in tests:
+    for test_func in tests:
         try:
             result = test_func()
             if result:

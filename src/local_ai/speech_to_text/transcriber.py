@@ -69,9 +69,6 @@ class WhisperTranscriber:
             device = self.device
             compute_type = self.compute_type
 
-            mode_desc = (
-                "CPU-only mode" if device == "cpu" else f"GPU acceleration ({device})"
-            )
             logger.debug(
                 f"Loading Whisper '{self.model_size}' on {device} ({compute_type})"
             )
