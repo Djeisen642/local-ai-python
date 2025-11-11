@@ -1,0 +1,340 @@
+# Design Document: Voice Task Management System
+
+## Overview
+
+Privacy-focused task detection and management using local LLM (Ollama) for classification, SQLite for storage, and MCP for external tool integration.
+
+### Key Principles
+
+1. **Privacy-First**: All processing local via Ollama
+2. **Source-Agnostic**: Accepts text from any source
+3. **Lightweight**: Optimized for 8GB GPU (llama3.2:1b model)
+4. **Extensible**: Built on existing ProcessingHandler architecture
+5. **Persistent**: SQLite with full history tracking
+
+## Architecture
+
+### High-Level Flow
+
+```
+Text Input → Task Detection Handler → LLM Classifier → Task List Manager → SQLite Database
+                                                                          ↓
+                                                                    MCP Server → External Tools
+```
+
+### Component Interaction
+
+```mermaid
+sequenceDiagram
+    participant Input as Text Source
+    participant Handler as Task Detection Handler
+    participant LLM as LLM Classifier
+    participant Manager as Task Manager
+    participant DB as SQLite Database
+
+    Input->>Handler: process(context)
+    Handler->>LLM: classify_text(text)
+    LLM-->>Handler: ClassificationResult
+
+    alt Task Detected
+        Handler->>Manager: add_task(task_data)
+        Manager->>DB: INSERT task + history
+        DB-->>Manager: task_id
+        Manager-->>Handler: success
+    end
+```
+
+## Components
+
+### 1. Task Detection Handler
+
+**Responsibilities**: Receive text, coordinate classification, manage task creation
+
+**Key Operations**:
+
+- Process text through ProcessingContext
+- Call LLM Classifier
+- Extract metadata (priority, due date)
+- Pass to Task Manager
+
+**Configuration**:
+
+- Confidence threshold: 0.7
+- Async processing: enabled
+- Notifications: configurable
+
+### 2. LLM Classifier
+
+**Responsibilities**: Communicate with Ollama for task classification
+
+**Key Operations**:
+
+- Connect to Ollama (http://localhost:11434)
+- Send structured prompts
+- Parse JSON responses
+- Handle retries (3 attempts, exponential backoff)
+
+**Prompt Strategy**:
+
+- Analyze for actionable tasks
+- Extract description, priority, due date
+- Return JSON with confidence score
+
+**Model**: llama3.2:1b (~1GB VRAM, ~100-200ms inference)
+
+**Configuration**:
+
+- Model: llama3.2:1b
+- Timeout: 10s
+- Max retries: 3
+- Temperature: 0.1
+
+### 3. Task List Manager
+
+**Responsibilities**: CRUD operations, persistence, statistics
+
+**Key Operations**:
+
+- Add/update/delete tasks
+- Query with filters (status, priority)
+- Calculate statistics
+- Manage history tracking
+
+**Configuration**:
+
+- Database path: ~/.local-ai/tasks.db
+- WAL mode: enabled
+- Backup: enabled
+
+### 4. MCP Server
+
+**Responsibilities**: Expose task operations via MCP
+
+**MCP Tools**:
+
+1. `list_tasks` - List with filters
+2. `add_task` - Create new task
+3. `update_task_status` - Change status
+4. `delete_task` - Remove task
+5. `get_task_statistics` - Get counts
+
+**Configuration**:
+
+- Host: localhost
+- Port: 3000
+- Auth: optional
+
+## Data Models
+
+### Task
+
+- id (UUID), description, status, priority
+- created_at, updated_at, due_date, completed_at
+- source (voice/cli/api/mcp), confidence
+- metadata (JSON)
+
+### Task History
+
+- task_id, timestamp, action
+- field_name, old_value, new_value
+- source, metadata
+
+### Enums
+
+- **Status**: pending, in_progress, completed, cancelled
+- **Priority**: low, medium, high
+
+## Storage
+
+### SQLite Schema
+
+**tasks table**:
+
+```sql
+CREATE TABLE tasks (
+    id TEXT PRIMARY KEY,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL,
+    priority TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    due_date TIMESTAMP,
+    completed_at TIMESTAMP,
+    source TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    metadata TEXT
+);
+
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_priority ON tasks(priority);
+CREATE INDEX idx_tasks_due_date ON tasks(due_date);
+```
+
+**task_history table**:
+
+```sql
+CREATE TABLE task_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id TEXT NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    action TEXT NOT NULL,
+    field_name TEXT,
+    old_value TEXT,
+    new_value TEXT,
+    source TEXT NOT NULL,
+    metadata TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
+);
+
+CREATE INDEX idx_history_task_id ON task_history(task_id);
+CREATE INDEX idx_history_timestamp ON task_history(timestamp);
+```
+
+**Benefits**:
+
+- Full history tracking
+- Efficient queries
+- ACID compliance
+- Future extensibility (FTS, embeddings via sqlite-vec)
+
+## Integration
+
+### Standalone Module
+
+Task management is a **standalone module** that accepts text from any source:
+
+- Direct API calls to TaskDetectionService
+- CLI input
+- MCP requests
+- Custom integrations
+
+### Optional Speech-to-Text Integration
+
+Users can optionally integrate with speech-to-text by:
+
+- Calling task detection directly from transcription callback
+- Using MCP to connect systems
+- Creating custom integration code
+
+**No tight coupling** - task management works independently of speech-to-text module
+
+## Error Handling
+
+### Strategies
+
+**Ollama Timeout**: Retry 3x with backoff, return failure if all fail
+**Classification Error**: Return no-task-detected, log, continue
+**Storage Error**: Maintain in-memory state, log, retry next operation
+**MCP Error**: Return error response, don't crash server
+
+### Graceful Degradation
+
+- Ollama unavailable → task detection disabled
+- Storage unavailable → in-memory only for session
+- MCP fails → core functionality continues
+
+## Performance
+
+### Optimization for 8GB GPU
+
+- Model: llama3.2:1b (~1GB VRAM)
+- Single inference per request
+- Limit context to 512 tokens
+- Sequential processing (queue requests)
+
+### Latency Targets
+
+- Classification: < 500ms (p95)
+- Storage: < 50ms (p95)
+- MCP: < 100ms (p95)
+- End-to-end: < 1s (p95)
+
+### Async Operations
+
+- Ollama API: async
+- Database: aiosqlite
+- MCP server: async
+- Pipeline: async
+
+## Testing
+
+### Unit Tests
+
+- LLM Classifier: Mock Ollama, test parsing, retries
+- Task Manager: CRUD, persistence, statistics, history
+- Handler: Detection flow, confidence threshold
+- MCP: Tool registration, validation, responses
+
+### Integration Tests
+
+- End-to-end: Text → stored task → MCP access
+- Pipeline: Transcription → task detection
+- Ollama: Real service tests (if available)
+
+### Performance Tests
+
+- Classification latency (p50, p95, p99)
+- Database performance (100, 1k, 10k tasks)
+- Concurrent operations
+
+## Configuration
+
+### Module: src/local_ai/task_management/config.py
+
+Configuration constants following the same pattern as speech_to_text/config.py:
+
+```python
+# Task Detection
+DEFAULT_CONFIDENCE_THRESHOLD = 0.7
+TASK_DETECTION_ENABLED = True
+
+# LLM Configuration
+DEFAULT_OLLAMA_MODEL = "llama3.2:1b"
+DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+DEFAULT_OLLAMA_TIMEOUT = 10.0  # seconds
+DEFAULT_OLLAMA_MAX_RETRIES = 3
+DEFAULT_OLLAMA_TEMPERATURE = 0.1
+
+# Storage Configuration
+DEFAULT_DATABASE_PATH = "~/.local-ai/tasks.db"
+DEFAULT_WAL_MODE = True
+DEFAULT_BACKUP_ENABLED = True
+
+# MCP Server Configuration
+DEFAULT_MCP_ENABLED = True
+DEFAULT_MCP_HOST = "localhost"
+DEFAULT_MCP_PORT = 3000
+DEFAULT_MCP_SERVER_NAME = "local-ai-tasks"
+```
+
+## Dependencies
+
+### New
+
+- **ollama**: Ollama Python client
+- **mcp**: Model Context Protocol SDK
+- **aiosqlite**: Async SQLite
+
+### System Requirements
+
+- Python 3.13+
+- Ollama with llama3.2:1b model
+- SQLite 3.35+ (included with Python 3.13)
+- 8GB GPU (recommended) or CPU fallback
+
+## Deployment
+
+1. Install Ollama: `curl -fsSL https://ollama.com/install.sh | sh`
+2. Pull model: `ollama pull llama3.2:1b`
+3. Install package: `uv pip install -e .[task-management]`
+4. Database auto-initializes on first run
+5. MCP server starts automatically
+
+## Future Enhancements
+
+- Task relationships and subtasks
+- Natural language queries
+- Task reminders/notifications
+- Embeddings for semantic search (sqlite-vec)
+- Multi-user support
+- Cloud sync (optional)

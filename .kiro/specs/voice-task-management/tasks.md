@@ -1,0 +1,213 @@
+# Implementation Plan
+
+## TDD Approach: Write tests first (RED), then implement (GREEN), then refactor
+
+- [x] 1. Set up project structure and core interfaces
+
+  - Create task_management module directory structure
+  - Define data models (Task, TaskStatus, TaskPriority, ClassificationResult, TaskDetectionResult)
+  - Create exceptions hierarchy
+  - Define TaskDetectionService interface for accepting text input
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+
+- [x] 2. Implement configuration module
+
+  - Create config.py with all configuration constants
+  - Define constants for LLM, storage, MCP, and task detection
+  - Follow existing speech_to_text/config.py pattern
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [x] 3. Implement SQLite database layer (TDD)
+
+  - [x] 3.1 Write database layer unit tests FIRST (fast - use in-memory DB) [RED]
+    - Write tests for schema creation and migrations
+    - Write tests for CRUD operations with mock data
+    - Write tests for error handling
+    - Tests will fail initially
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+  - [x] 3.2 Create database schema initialization [GREEN]
+    - Write SQL for tasks table with indexes
+    - Write SQL for task_history table with indexes
+    - Implement schema migration support
+    - Make schema tests pass
+    - _Requirements: 3.1, 3.2, 3.3_
+  - [x] 3.3 Implement database connection management [GREEN]
+    - Create async database connection with aiosqlite
+    - Enable WAL mode for concurrent access
+    - Implement connection pooling
+    - Make connection tests pass
+    - _Requirements: 3.1, 3.2_
+  - [x] 3.4 Implement CRUD operations [GREEN]
+    - Create task insertion with history tracking
+    - Implement task retrieval with filters
+    - Implement task updates with history logging
+    - Implement task deletion with history
+    - All database tests should now pass
+    - _Requirements: 3.3, 3.4, 4.2, 4.3, 4.4_
+
+- [ ] 4. Implement LLM Classifier (TDD)
+
+  - [ ] 4.1 Write LLM classifier unit tests FIRST (fast - mock Ollama) [RED]
+    - Write tests for Ollama connection
+    - Write tests for prompt generation
+    - Write tests for response parsing with valid/invalid JSON
+    - Write tests for retry logic
+    - Write tests for timeout handling
+    - Tests will fail initially
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 5.1, 5.2_
+  - [ ] 4.2 Create Ollama client integration [GREEN]
+    - Initialize connection to Ollama service
+    - Implement async API calls
+    - Handle connection errors
+    - Make connection tests pass
+    - _Requirements: 2.1, 2.2_
+  - [ ] 4.3 Implement classification logic [GREEN]
+    - Create structured prompt template
+    - Send classification requests to Ollama
+    - Parse JSON responses from LLM
+    - Extract task details (description, priority, due date)
+    - Make classification tests pass
+    - _Requirements: 2.3, 2.4_
+  - [ ] 4.4 Implement retry and error handling [GREEN]
+    - Add retry logic with exponential backoff
+    - Handle timeouts gracefully
+    - Log errors without crashing
+    - Make retry and timeout tests pass
+    - _Requirements: 2.2, 5.1, 5.2_
+  - [ ] 4.5 Track performance metrics [GREEN]
+    - Measure inference time
+    - Log classification results
+    - Integrate with performance monitoring
+    - All LLM classifier tests should now pass
+    - _Requirements: 8.2, 8.4_
+
+- [ ] 5. Implement Task List Manager (TDD)
+
+  - [ ] 5.1 Write Task List Manager unit tests FIRST (fast - mock database) [RED]
+    - Write tests for task CRUD operations
+    - Write tests for statistics calculation
+    - Write tests for error recovery scenarios
+    - Write tests for history tracking
+    - Tests will fail initially
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.2, 4.3, 4.4, 4.5_
+  - [ ] 5.2 Create Task List Manager class [GREEN]
+    - Initialize with database connection
+    - Load existing tasks on startup
+    - Implement task statistics calculation
+    - Make initialization tests pass
+    - _Requirements: 3.1, 4.5_
+  - [ ] 5.3 Implement task management operations [GREEN]
+    - Add new tasks with UUID generation
+    - Update task status with history tracking
+    - Delete tasks with history logging
+    - Retrieve tasks with filtering
+    - Make CRUD tests pass
+    - _Requirements: 4.2, 4.3, 4.4_
+  - [ ] 5.4 Implement error handling [GREEN]
+    - Handle database errors gracefully
+    - Maintain in-memory state on failures
+    - Log errors appropriately
+    - All Task List Manager tests should now pass
+    - _Requirements: 5.3, 5.4_
+
+- [ ] 6. Implement Task Detection Service (TDD)
+
+  - [ ] 6.1 Write Task Detection Service unit tests FIRST (fast - mock dependencies) [RED]
+    - Write tests for task detection flow with mocked LLM and manager
+    - Write tests for confidence thresholding
+    - Write tests for metadata extraction
+    - Write tests for error handling
+    - Tests will fail initially
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+  - [ ] 6.2 Create TaskDetectionService class [GREEN]
+    - Accept text input directly (no ProcessingHandler dependency)
+    - Initialize with LLM Classifier and Task List Manager
+    - Define detect_task_from_text() method
+    - Make initialization tests pass
+    - _Requirements: 1.1, 1.2_
+  - [ ] 6.3 Implement task detection logic [GREEN]
+    - Call LLM Classifier for classification
+    - Handle classification results
+    - Create tasks via Task List Manager
+    - Return TaskDetectionResult
+    - Make detection tests pass
+    - _Requirements: 1.3, 1.4, 1.5_
+  - [ ] 6.4 Implement async processing [GREEN]
+    - Make all operations async
+    - Handle errors gracefully
+    - Support concurrent requests
+    - Make async tests pass
+    - _Requirements: 1.3, 1.4_
+  - [ ] 6.5 Add logging and metrics [GREEN]
+    - Log task detection events
+    - Track processing time
+    - Integrate with performance monitor
+    - All Task Detection Service tests should now pass
+    - _Requirements: 8.1, 8.4, 8.5_
+
+- [ ] 7. Implement MCP Server (TDD)
+
+  - [ ] 7.1 Write MCP server unit tests FIRST (fast - mock Task Manager) [RED]
+    - Write tests for tool registration
+    - Write tests for request validation
+    - Write tests for response formatting
+    - Write tests for error handling
+    - Tests will fail initially
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.5_
+  - [ ] 7.2 Create MCP server initialization [GREEN]
+    - Initialize MCP server with configuration
+    - Register server with MCP SDK
+    - Handle server lifecycle
+    - Make initialization tests pass
+    - _Requirements: 4.1_
+  - [ ] 7.3 Implement MCP tools [GREEN]
+    - Implement list_tasks tool with filters
+    - Implement add_task tool
+    - Implement update_task_status tool
+    - Implement delete_task tool
+    - Implement get_task_statistics tool
+    - Make tool tests pass
+    - _Requirements: 4.2, 4.3, 4.4, 4.5_
+  - [ ] 7.4 Implement request validation [GREEN]
+    - Validate incoming MCP requests
+    - Return structured error responses
+    - Handle malformed requests
+    - Make validation tests pass
+    - _Requirements: 5.5_
+  - [ ] 7.5 Integrate with Task List Manager [GREEN]
+    - Delegate operations to Task List Manager
+    - Handle responses and errors
+    - Return formatted results
+    - All MCP server tests should now pass
+    - _Requirements: 4.2, 4.3, 4.4, 4.5_
+
+- [ ] 8. Integration tests and examples
+
+  - [ ] 8.1 Write end-to-end integration tests (slower - real Ollama if available)
+    - Test: text → task detection → storage → MCP
+    - Test with various input types (clear tasks, non-tasks, ambiguous)
+    - Verify task accessible via MCP
+    - Use real Ollama if available, otherwise mock
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 4.2, 4.3, 4.4_
+  - [ ] 8.2 Create example integration with speech-to-text (optional)
+    - Show how to call TaskDetectionService from transcription callback
+    - Demonstrate standalone usage
+    - Document integration pattern
+    - _Requirements: 7.1, 7.2_
+
+- [ ] 9. Documentation and deployment
+  - [ ] 9.1 Update README with task management features
+    - Document task detection capabilities
+    - Document MCP integration
+    - Document usage examples
+    - _Requirements: All_
+  - [ ] 9.2 Create deployment guide
+    - Document Ollama installation
+    - Document model download (llama3.2:1b)
+    - Document MCP server setup
+    - _Requirements: 2.1, 2.5, 4.1_
+  - [ ] 9.3 Add configuration examples
+    - Document config.py constants
+    - Provide usage examples
+    - Document integration patterns
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
