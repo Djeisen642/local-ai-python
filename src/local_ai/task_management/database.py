@@ -9,9 +9,9 @@ from uuid import UUID
 
 import aiosqlite
 
-from local_ai.task_management.config import SCHEMA_VERSION
-from local_ai.task_management.exceptions import DatabaseError, TaskNotFoundError
-from local_ai.task_management.models import Task, TaskPriority, TaskStatus
+from .config import SCHEMA_VERSION
+from .exceptions import DatabaseError, TaskNotFoundError
+from .models import Task, TaskPriority, TaskStatus
 
 
 class TaskDatabase:

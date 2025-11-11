@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from local_ai.task_management.models import ClassificationResult, TaskDetectionResult
+from .models import ClassificationResult, TaskDetectionResult
 
 
 class TaskDetectionService(ABC):

@@ -71,14 +71,22 @@ sequenceDiagram
 
 - Connect to Ollama (http://localhost:11434)
 - Send structured prompts
-- Parse JSON responses
+- Parse TOML responses (token-efficient format)
 - Handle retries (3 attempts, exponential backoff)
+- Sanitize input to prevent prompt injection
 
 **Prompt Strategy**:
 
-- Analyze for actionable tasks
-- Extract description, priority, due date
-- Return JSON with confidence score
+- Concise format optimized for small models (~100 tokens)
+- Direct question: "Is this an actionable task?"
+- TOML response format (token-efficient, simpler than JSON)
+- Input sanitization: escape quotes, remove newlines, 500 char limit
+
+**Security**:
+
+- Input sanitization prevents prompt injection attacks
+- Length limiting (500 chars) prevents token exhaustion
+- Quote escaping prevents breaking out of TEXT field
 
 **Model**: llama3.2:1b (~1GB VRAM, ~100-200ms inference)
 

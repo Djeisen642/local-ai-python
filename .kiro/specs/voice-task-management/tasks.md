@@ -45,65 +45,65 @@
     - All database tests should now pass
     - _Requirements: 3.3, 3.4, 4.2, 4.3, 4.4_
 
-- [ ] 4. Implement LLM Classifier (TDD)
+- [x] 4. Implement LLM Classifier (TDD)
 
-  - [ ] 4.1 Write LLM classifier unit tests FIRST (fast - mock Ollama) [RED]
+  - [x] 4.1 Write LLM classifier unit tests FIRST (fast - mock Ollama) [RED]
     - Write tests for Ollama connection
     - Write tests for prompt generation
-    - Write tests for response parsing with valid/invalid JSON
+    - Write tests for response parsing with valid/invalid TOML
     - Write tests for retry logic
     - Write tests for timeout handling
     - Tests will fail initially
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 5.1, 5.2_
-  - [ ] 4.2 Create Ollama client integration [GREEN]
+  - [x] 4.2 Create Ollama client integration [GREEN]
     - Initialize connection to Ollama service
     - Implement async API calls
     - Handle connection errors
     - Make connection tests pass
     - _Requirements: 2.1, 2.2_
-  - [ ] 4.3 Implement classification logic [GREEN]
+  - [x] 4.3 Implement classification logic [GREEN]
     - Create structured prompt template
     - Send classification requests to Ollama
-    - Parse JSON responses from LLM
+    - Parse TOML responses from LLM
     - Extract task details (description, priority, due date)
     - Make classification tests pass
     - _Requirements: 2.3, 2.4_
-  - [ ] 4.4 Implement retry and error handling [GREEN]
+  - [x] 4.4 Implement retry and error handling [GREEN]
     - Add retry logic with exponential backoff
     - Handle timeouts gracefully
     - Log errors without crashing
     - Make retry and timeout tests pass
     - _Requirements: 2.2, 5.1, 5.2_
-  - [ ] 4.5 Track performance metrics [GREEN]
+  - [x] 4.5 Track performance metrics [GREEN]
     - Measure inference time
     - Log classification results
     - Integrate with performance monitoring
     - All LLM classifier tests should now pass
     - _Requirements: 8.2, 8.4_
 
-- [ ] 5. Implement Task List Manager (TDD)
+- [x] 5. Implement Task List Manager (TDD)
 
-  - [ ] 5.1 Write Task List Manager unit tests FIRST (fast - mock database) [RED]
+  - [x] 5.1 Write Task List Manager unit tests FIRST (fast - mock database) [RED]
     - Write tests for task CRUD operations
     - Write tests for statistics calculation
     - Write tests for error recovery scenarios
     - Write tests for history tracking
     - Tests will fail initially
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.2, 4.3, 4.4, 4.5_
-  - [ ] 5.2 Create Task List Manager class [GREEN]
+  - [x] 5.2 Create Task List Manager class [GREEN]
     - Initialize with database connection
     - Load existing tasks on startup
     - Implement task statistics calculation
     - Make initialization tests pass
     - _Requirements: 3.1, 4.5_
-  - [ ] 5.3 Implement task management operations [GREEN]
+  - [x] 5.3 Implement task management operations [GREEN]
     - Add new tasks with UUID generation
     - Update task status with history tracking
     - Delete tasks with history logging
     - Retrieve tasks with filtering
     - Make CRUD tests pass
     - _Requirements: 4.2, 4.3, 4.4_
-  - [ ] 5.4 Implement error handling [GREEN]
+  - [x] 5.4 Implement error handling [GREEN]
     - Handle database errors gracefully
     - Maintain in-memory state on failures
     - Log errors appropriately

@@ -1,12 +1,13 @@
 """Task management module for automatic task detection and management."""
 
-from local_ai.task_management.models import (
+from .models import (
     ClassificationResult,
     Task,
     TaskDetectionResult,
     TaskPriority,
     TaskStatus,
 )
+from .task_list_manager import TaskListManager
 
 __all__ = [
     "Task",
@@ -14,4 +15,5 @@ __all__ = [
     "TaskPriority",
     "ClassificationResult",
     "TaskDetectionResult",
+    "TaskListManager",
 ]
