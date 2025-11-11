@@ -26,6 +26,33 @@ from .config import (
     LATENCY_VAD_FRAME_DURATION,
     MINIMUM_CHUNK_SIZE,
     MINIMUM_PROCESSING_INTERVAL,
+    OPT_ADAPTIVE_INTERVAL_MAX,
+    OPT_ADAPTIVE_LATENCY_THRESHOLD,
+    OPT_ADAPTIVE_MIN_HISTORY,
+    OPT_ADAPTIVE_RECENT_WINDOW,
+    OPT_ADAPTIVE_SILENCE_REDUCTION,
+    OPT_COMPUTE_TYPE_FLOAT16,
+    OPT_COMPUTE_TYPE_INT8,
+    OPT_CPU_CORES_FAST,
+    OPT_CPU_CORES_MANY,
+    OPT_DEFAULT_GPU_MEMORY_GB,
+    OPT_DEFAULT_MEMORY_GB,
+    OPT_DEVICE_CPU,
+    OPT_DEVICE_CUDA,
+    OPT_MAX_AUDIO_BUFFER_HIGH_MEM,
+    OPT_MAX_AUDIO_BUFFER_RESOURCE,
+    OPT_MAX_CONCURRENT_TRANSCRIPTIONS,
+    OPT_MODEL_SIZE_DEFAULT,
+    OPT_MODEL_SIZE_LARGE,
+    OPT_MODEL_SIZE_MEDIUM,
+    OPT_MODEL_SIZE_SMALL,
+    OPT_MODEL_SIZE_TINY,
+    OPT_PLATFORM_LINUX,
+    OPT_PROCESSING_INTERVAL_DEFAULT,
+    OPT_PROCESSING_INTERVAL_FAST_CPU,
+    OPT_PROCESSING_INTERVAL_LATENCY,
+    OPT_VAD_AGGRESSIVENESS_ACCURACY_REDUCE,
+    OPT_VAD_AGGRESSIVENESS_LINUX_BOOST,
     PERFORMANCE_HISTORY_SIZE,
     RESOURCE_CHUNK_SIZE,
     RESOURCE_PROCESSING_INTERVAL,
@@ -73,7 +100,7 @@ class PerformanceOptimizer:
             "platform": platform.system(),
             "architecture": platform.machine(),
             "has_gpu": False,
-            "memory_gb": 4,  # Default conservative estimate
+            "memory_gb": OPT_DEFAULT_MEMORY_GB,
         }
 
         # Check if GPU should be forced off
@@ -100,7 +127,7 @@ class PerformanceOptimizer:
                         )
                 except Exception as e:
                     logger.debug(f"Could not get GPU memory info: {e}")
-                    capabilities["gpu_memory_gb"] = 0
+                    capabilities["gpu_memory_gb"] = OPT_DEFAULT_GPU_MEMORY_GB
 
         # Try to detect memory
         try:
@@ -180,26 +207,24 @@ class PerformanceOptimizer:
             "min_speech_duration": DEFAULT_MIN_SPEECH_DURATION,
             "max_silence_duration": DEFAULT_MAX_SILENCE_DURATION,
             # Transcription optimizations
-            "whisper_model_size": "small",  # Default
-            "compute_type": "int8",  # CPU optimization
-            "device": "cpu",  # Default to CPU for stability
+            "whisper_model_size": OPT_MODEL_SIZE_DEFAULT,
+            "compute_type": OPT_COMPUTE_TYPE_INT8,
+            "device": OPT_DEVICE_CPU,
             "max_audio_buffer_size": DEFAULT_MAX_AUDIO_BUFFER_SIZE,
             "transcription_timeout": DEFAULT_TRANSCRIPTION_TIMEOUT,
             # Pipeline optimizations
-            "processing_interval": 0.01,  # seconds between processing cycles
-            "max_concurrent_transcriptions": 1,  # Prevent overload
+            "processing_interval": OPT_PROCESSING_INTERVAL_DEFAULT,
+            "max_concurrent_transcriptions": OPT_MAX_CONCURRENT_TRANSCRIPTIONS,
         }
 
         # Optimize based on system capabilities
-        if self.system_info["cpu_count"] >= 4:
-            config["chunk_size"] = (
-                LATENCY_CHUNK_SIZE  # Smaller chunks for better responsiveness
-            )
-            config["processing_interval"] = 0.005  # Faster processing
+        if self.system_info["cpu_count"] >= OPT_CPU_CORES_FAST:
+            config["chunk_size"] = LATENCY_CHUNK_SIZE
+            config["processing_interval"] = OPT_PROCESSING_INTERVAL_FAST_CPU
 
         if self.system_info["memory_gb"] >= HIGH_MEMORY_GB:
-            config["buffer_size"] = HIGH_MEMORY_BUFFER_SIZE  # ~10 seconds buffer
-            config["max_audio_buffer_size"] = 15
+            config["buffer_size"] = HIGH_MEMORY_BUFFER_SIZE
+            config["max_audio_buffer_size"] = OPT_MAX_AUDIO_BUFFER_HIGH_MEM
 
         # Configure device based on GPU availability and force_cpu setting
         if self.force_cpu or not self.system_info["has_gpu"]:
@@ -211,37 +236,34 @@ class PerformanceOptimizer:
                 logger.debug(
                     "Using CPU-only mode for Whisper transcription (no GPU available)"
                 )
-            config["device"] = "cpu"
-            config["compute_type"] = "int8"
+            config["device"] = OPT_DEVICE_CPU
+            config["compute_type"] = OPT_COMPUTE_TYPE_INT8
         else:
             logger.debug("Using GPU acceleration for Whisper transcription")
-            config["device"] = "cuda"
-            config["compute_type"] = "float16"  # Better for GPU
+            config["device"] = OPT_DEVICE_CUDA
+            config["compute_type"] = OPT_COMPUTE_TYPE_FLOAT16
 
             # Adjust model size based on GPU memory
-            gpu_memory = self.system_info.get("gpu_memory_gb", 0)
+            gpu_memory = self.system_info.get("gpu_memory_gb", OPT_DEFAULT_GPU_MEMORY_GB)
             if gpu_memory >= ULTRA_GPU_MEMORY_GB:
-                config["whisper_model_size"] = "large"
+                config["whisper_model_size"] = OPT_MODEL_SIZE_LARGE
             elif gpu_memory >= HIGH_GPU_MEMORY_GB:
-                config["whisper_model_size"] = "medium"
+                config["whisper_model_size"] = OPT_MODEL_SIZE_MEDIUM
             else:
-                config["whisper_model_size"] = "small"
+                config["whisper_model_size"] = OPT_MODEL_SIZE_SMALL
 
         # Optimize CPU performance based on system capabilities
-        if self.system_info["cpu_count"] >= 8:
-            config["whisper_model_size"] = (
-                "small"  # Can handle slightly larger model with more CPU cores
-            )
-        elif self.system_info["cpu_count"] >= 4:
-            config["whisper_model_size"] = (
-                "tiny"  # Use smallest model for better performance on limited cores
-            )
+        if self.system_info["cpu_count"] >= OPT_CPU_CORES_MANY:
+            config["whisper_model_size"] = OPT_MODEL_SIZE_SMALL
+        elif self.system_info["cpu_count"] >= OPT_CPU_CORES_FAST:
+            config["whisper_model_size"] = OPT_MODEL_SIZE_TINY
 
         # Platform-specific optimizations
-        if self.system_info["platform"] == "Linux":
+        if self.system_info["platform"] == OPT_PLATFORM_LINUX:
             config["vad_aggressiveness"] = min(
-                3, VAD_AGGRESSIVENESS + 1
-            )  # More aggressive on Linux
+                OPT_VAD_AGGRESSIVENESS_LINUX_BOOST + 2,
+                VAD_AGGRESSIVENESS + OPT_VAD_AGGRESSIVENESS_LINUX_BOOST,
+            )
 
         logger.debug(f"Generated optimized config: {config}")
         return config
@@ -292,7 +314,7 @@ class PerformanceOptimizer:
         latency_config["buffer_size"] = LATENCY_BUFFER_SIZE
         latency_config["min_speech_duration"] = LATENCY_MIN_SPEECH_DURATION
         latency_config["max_silence_duration"] = LATENCY_MAX_SILENCE_DURATION
-        latency_config["processing_interval"] = 0.005  # More frequent processing
+        latency_config["processing_interval"] = OPT_PROCESSING_INTERVAL_LATENCY
         latency_config["vad_frame_duration"] = LATENCY_VAD_FRAME_DURATION
 
         logger.debug("Applied latency optimizations")
@@ -307,14 +329,16 @@ class PerformanceOptimizer:
         accuracy_config["min_speech_duration"] = ACCURACY_MIN_SPEECH_DURATION
         accuracy_config["max_silence_duration"] = ACCURACY_MAX_SILENCE_DURATION
         accuracy_config["vad_aggressiveness"] = max(
-            1, VAD_AGGRESSIVENESS - 1
-        )  # Less aggressive
+            OPT_VAD_AGGRESSIVENESS_ACCURACY_REDUCE,
+            VAD_AGGRESSIVENESS - OPT_VAD_AGGRESSIVENESS_ACCURACY_REDUCE,
+        )
 
         # Use better model if system supports it
-        if self.system_info.get("gpu_memory_gb", 0) >= HIGH_GPU_MEMORY_GB:
-            accuracy_config["whisper_model_size"] = "medium"
-        if self.system_info.get("gpu_memory_gb", 0) >= ULTRA_GPU_MEMORY_GB:
-            accuracy_config["whisper_model_size"] = "large"
+        gpu_memory = self.system_info.get("gpu_memory_gb", OPT_DEFAULT_GPU_MEMORY_GB)
+        if gpu_memory >= HIGH_GPU_MEMORY_GB:
+            accuracy_config["whisper_model_size"] = OPT_MODEL_SIZE_MEDIUM
+        if gpu_memory >= ULTRA_GPU_MEMORY_GB:
+            accuracy_config["whisper_model_size"] = OPT_MODEL_SIZE_LARGE
 
         logger.debug("Applied accuracy optimizations")
         return accuracy_config
@@ -324,17 +348,13 @@ class PerformanceOptimizer:
         resource_config = self.optimized_config.copy()
 
         # Minimize resource usage
-        resource_config["chunk_size"] = (
-            RESOURCE_CHUNK_SIZE  # Larger chunks, less frequent processing
-        )
-        resource_config["buffer_size"] = DEFAULT_BUFFER_SIZE  # Smaller buffer
-        resource_config["processing_interval"] = (
-            RESOURCE_PROCESSING_INTERVAL  # Less frequent processing
-        )
-        resource_config["whisper_model_size"] = "tiny"  # Smallest model
-        resource_config["device"] = "cpu"  # Force CPU to save GPU memory
-        resource_config["compute_type"] = "int8"  # Most efficient compute type
-        resource_config["max_audio_buffer_size"] = 5  # Smaller buffer
+        resource_config["chunk_size"] = RESOURCE_CHUNK_SIZE
+        resource_config["buffer_size"] = DEFAULT_BUFFER_SIZE
+        resource_config["processing_interval"] = RESOURCE_PROCESSING_INTERVAL
+        resource_config["whisper_model_size"] = OPT_MODEL_SIZE_TINY
+        resource_config["device"] = OPT_DEVICE_CPU
+        resource_config["compute_type"] = OPT_COMPUTE_TYPE_INT8
+        resource_config["max_audio_buffer_size"] = OPT_MAX_AUDIO_BUFFER_RESOURCE
 
         logger.debug("Applied resource usage optimizations")
         return resource_config
@@ -346,7 +366,7 @@ class AdaptiveOptimizer:
     def __init__(self, base_optimizer: PerformanceOptimizer):
         """Initialize adaptive optimizer."""
         self.base_optimizer = base_optimizer
-        self.performance_history = []
+        self.performance_history: list[dict[str, Any]] = []
         self.current_config = base_optimizer.optimized_config.copy()
         self.adaptation_count = 0
 
@@ -369,18 +389,22 @@ class AdaptiveOptimizer:
 
     def should_adapt(self) -> bool:
         """Determine if configuration should be adapted."""
-        if len(self.performance_history) < 3:
+        if len(self.performance_history) < OPT_ADAPTIVE_MIN_HISTORY:
             return False
 
         # Check if performance is consistently poor
-        recent_latencies = [p["latency"] for p in self.performance_history[-3:]]
-        recent_cpu = [p["cpu_usage"] for p in self.performance_history[-3:]]
+        recent_latencies = [
+            p["latency"] for p in self.performance_history[-OPT_ADAPTIVE_RECENT_WINDOW:]
+        ]
+        recent_cpu = [
+            p["cpu_usage"] for p in self.performance_history[-OPT_ADAPTIVE_RECENT_WINDOW:]
+        ]
 
         avg_latency = sum(recent_latencies) / len(recent_latencies)
         avg_cpu = sum(recent_cpu) / len(recent_cpu)
 
         # Adapt if latency is too high or CPU usage is too high
-        return avg_latency > HIGH_LATENCY_THRESHOLD or avg_cpu > HIGH_CPU_THRESHOLD
+        return bool(avg_latency > HIGH_LATENCY_THRESHOLD or avg_cpu > HIGH_CPU_THRESHOLD)
 
     def adapt_configuration(self) -> dict[str, Any]:
         """Adapt configuration based on performance history."""
@@ -391,12 +415,12 @@ class AdaptiveOptimizer:
         logger.debug(f"Adapting configuration (adaptation #{self.adaptation_count})")
 
         # Get recent performance metrics
-        recent_metrics = self.performance_history[-3:]
+        recent_metrics = self.performance_history[-OPT_ADAPTIVE_RECENT_WINDOW:]
         avg_latency = sum(p["latency"] for p in recent_metrics) / len(recent_metrics)
         avg_cpu = sum(p["cpu_usage"] for p in recent_metrics) / len(recent_metrics)
 
         # Adapt based on performance issues
-        if avg_latency > 5.0:
+        if avg_latency > OPT_ADAPTIVE_LATENCY_THRESHOLD:
             # High latency - optimize for speed
             logger.debug("High latency detected, optimizing for speed")
             self.current_config["chunk_size"] = max(
@@ -407,7 +431,9 @@ class AdaptiveOptimizer:
                 self.current_config["processing_interval"] / 2,
             )
             self.current_config["max_silence_duration"] = max(
-                0.5, self.current_config["max_silence_duration"] - 0.5
+                OPT_ADAPTIVE_SILENCE_REDUCTION,
+                self.current_config["max_silence_duration"]
+                - OPT_ADAPTIVE_SILENCE_REDUCTION,
             )
 
         if avg_cpu > HIGH_CPU_THRESHOLD:
@@ -417,14 +443,14 @@ class AdaptiveOptimizer:
                 RESOURCE_CHUNK_SIZE, self.current_config["chunk_size"] * 2
             )
             self.current_config["processing_interval"] = min(
-                0.05, self.current_config["processing_interval"] * 2
+                OPT_ADAPTIVE_INTERVAL_MAX, self.current_config["processing_interval"] * 2
             )
 
             # Switch to smaller model if using larger one
-            if self.current_config["whisper_model_size"] == "large":
-                self.current_config["whisper_model_size"] = "medium"
-            elif self.current_config["whisper_model_size"] == "medium":
-                self.current_config["whisper_model_size"] = "small"
+            if self.current_config["whisper_model_size"] == OPT_MODEL_SIZE_LARGE:
+                self.current_config["whisper_model_size"] = OPT_MODEL_SIZE_MEDIUM
+            elif self.current_config["whisper_model_size"] == OPT_MODEL_SIZE_MEDIUM:
+                self.current_config["whisper_model_size"] = OPT_MODEL_SIZE_SMALL
 
         return self.current_config
 

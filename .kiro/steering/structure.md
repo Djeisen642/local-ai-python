@@ -1,142 +1,60 @@
 # Project Structure
 
-## Directory Layout
+## Layout
 
 ```
-local-ai-python/
-├── src/local_ai/                    # Main package source
-│   ├── __init__.py
-│   ├── main.py                      # CLI entry point
-│   └── speech_to_text/              # Speech-to-text module
-│       ├── __init__.py
-│       ├── audio_capture.py         # Microphone input management
-│       ├── cache_utils.py           # Cache management utilities
-│       ├── cli_optimization.py      # CLI-specific optimizations
-│       ├── config.py                # Configuration constants
-│       ├── exceptions.py            # Custom exception classes
-│       ├── interfaces.py            # Abstract interfaces & data models
-│       ├── logging_utils.py         # Logging configuration
-│       ├── models.py                # Data classes (AudioChunk, etc.)
-│       ├── optimization.py          # Performance optimization
-│       ├── optimization_cache.py    # Caching for optimizations
-│       ├── performance_monitor.py   # Performance tracking
-│       ├── pipeline.py              # Processing pipeline
-│       ├── service.py               # Main orchestrator service
-│       ├── transcriber.py           # Whisper transcription
-│       └── vad.py                   # Voice activity detection
-├── tests/                           # Test suite
-│   ├── test_data/                   # Test audio files
-│   │   └── audio/                   # WAV files for testing
-│   └── test_speech_to_text/         # Module-specific tests
-├── docs/                            # Documentation
-├── .kiro/steering/                  # AI assistant steering rules
-├── pyproject.toml                   # Project configuration
-└── README.md                        # Project documentation
+src/local_ai/
+├── main.py                          # CLI entry
+├── speech_to_text/                  # STT module
+│   ├── service.py                   # Main orchestrator
+│   ├── audio_capture.py             # Mic input
+│   ├── vad.py                       # Voice activity detection
+│   ├── transcriber.py               # Whisper STT
+│   ├── pipeline.py                  # Extensible processing
+│   ├── models.py                    # Data classes
+│   ├── config.py                    # Constants
+│   ├── exceptions.py                # Custom errors
+│   ├── optimization.py              # Performance tuning
+│   ├── performance_monitor.py       # Metrics
+│   ├── interfaces.py                # ABC for extensibility
+│   └── audio_filtering/             # Audio enhancement
+│       ├── audio_filter_pipeline.py # Filter orchestration
+│       ├── noise_reduction.py       # Noise removal
+│       ├── spectral_enhancer.py     # Spectral processing
+│       ├── audio_normalizer.py      # Volume normalization
+│       ├── adaptive_processor.py    # Adaptive filtering
+│       ├── models.py                # Filter data classes
+│       └── interfaces.py            # Filter ABCs
+└── task_management/                 # Task/calendar module
+    ├── database.py                  # SQLite persistence
+    ├── models.py                    # Task data classes
+    ├── config.py                    # Task constants
+    ├── exceptions.py                # Task errors
+    └── interfaces.py                # Task ABCs
+
+tests/
+├── test_speech_to_text/             # STT tests
+├── test_task_management/            # Task tests
+└── test_data/audio/                 # Test WAV files
 ```
 
-## Module Organization
+## Naming
 
-### Core Components
+- **Files**: `snake_case.py`
+- **Classes**: `PascalCase`, exceptions end with `Error`
+- **Functions**: `snake_case()`, async clearly marked, private with `_prefix()`
+- **Constants**: `UPPER_SNAKE_CASE`
 
-- **service.py** - Main orchestrator that coordinates all components
-- **audio_capture.py** - Handles microphone input and audio streaming
-- **vad.py** - Voice activity detection using WebRTC VAD
-- **transcriber.py** - Whisper-based speech-to-text conversion
-- **pipeline.py** - Extensible processing pipeline for future AI features
+## Patterns
 
-### Supporting Components
+- **Dependency Injection**: Pass deps in constructors for testability
+- **ABC Interfaces**: Extensible contracts for future features
+- **Async/Await**: All I/O is async with proper context management
+- **Error Handling**: Custom hierarchy, graceful degradation (GPU→CPU)
+- **Config**: Centralized in `config.py`, runtime optimization with caching
 
-- **models.py** - Data classes (`AudioChunk`, `TranscriptionResult`, `SpeechSegment`)
-- **config.py** - Configuration constants and settings
-- **exceptions.py** - Custom exception hierarchy
-- **optimization.py** - Performance optimization based on system capabilities
-- **performance_monitor.py** - Metrics collection and monitoring
-- **cache_utils.py** - Cache management and utilities
-- **logging_utils.py** - Logging configuration and utilities
+## Testing (TDD Required)
 
-### Extensibility Layer
-
-- **interfaces.py** - Abstract base classes for extensible AI pipeline
-  - `ProcessingHandler` - Base for all processing stages
-  - `EmbeddingHandler` - Text embedding generation
-  - `ResponseGenerationHandler` - AI response generation
-  - `TextToSpeechHandler` - Speech synthesis
-  - `ProcessingPipeline` - Pipeline management interface
-
-## Naming Conventions
-
-### Files & Modules
-
-- Snake case: `audio_capture.py`, `voice_activity_detection.py`
-- Descriptive names that indicate functionality
-- Group related functionality in single modules
-
-### Classes
-
-- PascalCase: `SpeechToTextService`, `WhisperTranscriber`
-- Descriptive names ending with purpose: `AudioCapture`, `VoiceActivityDetector`
-- Exception classes end with `Error`: `AudioCaptureError`, `TranscriptionError`
-
-### Functions & Methods
-
-- Snake case: `start_listening()`, `process_audio_chunk()`
-- Async methods clearly indicated: `async def process_audio()`
-- Private methods prefixed with underscore: `_process_audio_chunk()`
-
-### Constants
-
-- UPPER_SNAKE_CASE in `config.py`: `DEFAULT_SAMPLE_RATE`, `VAD_FRAME_DURATION_MS`
-
-## Architecture Patterns
-
-### Dependency Injection
-
-- Services accept dependencies in constructors
-- Enables testing with mocks and different implementations
-
-### Abstract Interfaces
-
-- Use ABC (Abstract Base Classes) for extensibility
-- Define clear contracts for future implementations
-
-### Async/Await
-
-- All I/O operations are async
-- Use `asyncio` for concurrent processing
-- Proper async context management
-
-### Error Handling
-
-- Custom exception hierarchy in `exceptions.py`
-- Graceful degradation (GPU → CPU fallback)
-- Comprehensive error logging
-
-### Configuration Management
-
-- Centralized constants in `config.py`
-- Runtime optimization based on system capabilities
-- Caching of optimization decisions
-
-## Testing Structure
-
-### Test-Driven Development (TDD)
-
-**Required for all new features**: Write tests first, then implement (Red-Green-Refactor cycle)
-
-### Test Categories
-
-- **Unit tests** (`-m unit`) - Fast, isolated component tests
-- **Integration tests** (`-m integration`) - Component interaction tests
-- **Performance tests** (`-m performance`) - Benchmarking and optimization
-
-### Test Organization
-
-- Mirror source structure in `tests/` directory
-- One test file per source module: `test_audio_capture.py`
-- Test data in `tests/test_data/` with organized subdirectories
-
-### Coverage Requirements
-
-- **New code**: 90% minimum line coverage
-- **Critical paths**: 100% coverage for core audio processing
-- **Dead code monitoring**: Regular analysis to remove unused code
+- **Categories**: `-m unit` (fast), `-m integration` (interaction), `-m performance` (benchmarks)
+- **Organization**: Mirror `src/` in `tests/`, one test file per module
+- **Coverage**: 90% minimum for new code, 100% for critical paths
