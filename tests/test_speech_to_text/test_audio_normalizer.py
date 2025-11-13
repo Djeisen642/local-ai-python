@@ -2,7 +2,8 @@
 
 import numpy as np
 import pytest
-from src.local_ai.speech_to_text.audio_filtering.audio_normalizer import AudioNormalizer
+
+from local_ai.speech_to_text.audio_filtering.audio_normalizer import AudioNormalizer
 
 
 class TestAudioNormalizer:

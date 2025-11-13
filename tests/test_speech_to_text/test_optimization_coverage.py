@@ -37,9 +37,9 @@ class TestOptimizationCoverage:
 
     def test_gpu_detection_torch_import_error(self) -> None:
         """Test GPU detection when torch is not available."""
-        # Patch the specific import inside the method
+        # Patch the system detector function
         with patch(
-            "local_ai.speech_to_text.optimization.PerformanceOptimizer._detect_system_capabilities"
+            "local_ai.speech_to_text.performance_optimizer.detect_system_capabilities"
         ) as mock_detect:
             # Mock the return value to simulate torch import error
             mock_detect.return_value = {
@@ -66,9 +66,9 @@ class TestOptimizationCoverage:
 
     def test_memory_detection_psutil_import_error(self) -> None:
         """Test memory detection when psutil is not available."""
-        # Patch the specific import inside the method
+        # Patch the system detector function
         with patch(
-            "local_ai.speech_to_text.optimization.PerformanceOptimizer._detect_system_capabilities"
+            "local_ai.speech_to_text.performance_optimizer.detect_system_capabilities"
         ) as mock_detect:
             # Mock the return value to simulate psutil import error
             mock_detect.return_value = {
@@ -93,7 +93,8 @@ class TestOptimizationCoverage:
 
         config = optimizer.optimize_for_accuracy()
 
-        assert config["whisper_model_size"] == "medium"  # Upgraded from small
+        # Should use distilled English-only medium model (default with OPT_USE_DISTILLED_MODELS=True)
+        assert config["whisper_model_size"] == "distil-medium.en"
 
     def test_optimize_for_accuracy_with_large_gpu(self) -> None:
         """Test accuracy optimization with large GPU."""
@@ -105,7 +106,8 @@ class TestOptimizationCoverage:
 
         config = optimizer.optimize_for_accuracy()
 
-        assert config["whisper_model_size"] == "large"  # Upgraded to large
+        # Should use distilled large model (default with OPT_USE_DISTILLED_MODELS=True)
+        assert config["whisper_model_size"] == "distil-large-v3"
 
     def test_platform_specific_optimizations(self) -> None:
         """Test platform-specific optimizations."""
@@ -253,8 +255,8 @@ class TestOptimizationCoverage:
 
         adapted_config = adaptive.adapt_configuration()
 
-        # Should downgrade model
-        assert adapted_config["whisper_model_size"] == "medium"
+        # Should downgrade model to distilled medium with English-only (default with OPT_USE_DISTILLED_MODELS=True)
+        assert adapted_config["whisper_model_size"] == "distil-medium.en"
 
     def test_adaptive_optimizer_get_current_config(self) -> None:
         """Test getting current adapted configuration."""
@@ -284,5 +286,52 @@ class TestOptimizationCoverage:
             config = optimizer._generate_optimized_config()
 
             # Should get optimizations for high-end system
-            assert config["chunk_size"] == 512  # Smaller for better responsiveness
+            assert config["chunk_size"] == 480  # Aligned with VAD frame (30ms at 16kHz)
             assert config["processing_interval"] == 0.005  # Faster processing
+
+    def test_model_optimizations(self) -> None:
+        """Test model optimization with distilled and English-only variants."""
+        from local_ai.speech_to_text.optimization import apply_model_optimizations
+
+        # Test with English-only enabled (default, distilled disabled by default)
+        assert apply_model_optimizations("tiny", True, False) == "tiny.en"
+        assert apply_model_optimizations("small", True, False) == "small.en"
+        assert apply_model_optimizations("medium", True, False) == "medium.en"
+        assert apply_model_optimizations("large", True, False) == "large"
+
+        # Test with both distilled and English-only enabled (experimental)
+        # When distilled is enabled, tiny/small/medium all upgrade to distil-medium
+        assert (
+            apply_model_optimizations("tiny", True, True) == "distil-medium.en"
+        )  # Upgraded
+        assert (
+            apply_model_optimizations("small", True, True) == "distil-medium.en"
+        )  # Upgraded
+        assert (
+            apply_model_optimizations("medium", True, True) == "distil-medium.en"
+        )  # Distilled
+        assert (
+            apply_model_optimizations("large", True, True) == "distil-large-v3"
+        )  # Distilled
+
+        # Test with only distilled enabled (no English-only)
+        assert apply_model_optimizations("tiny", False, True) == "distil-medium"
+        assert apply_model_optimizations("small", False, True) == "distil-medium"
+        assert apply_model_optimizations("medium", False, True) == "distil-medium"
+        assert apply_model_optimizations("large", False, True) == "distil-large-v3"
+
+        # Test with both disabled
+        assert apply_model_optimizations("tiny", False, False) == "tiny"
+        assert apply_model_optimizations("small", False, False) == "small"
+        assert apply_model_optimizations("medium", False, False) == "medium"
+        assert apply_model_optimizations("large", False, False) == "large"
+
+    def test_default_config_uses_optimized_models(self) -> None:
+        """Test that default configuration uses English-only models."""
+        optimizer = PerformanceOptimizer(use_cache=False)
+        config = optimizer.optimized_config
+
+        model_size = config["whisper_model_size"]
+        # Should use .en suffix for English-only optimization (unless large)
+        is_optimized = model_size.endswith(".en") or model_size == "large"
+        assert is_optimized, f"Expected English-only model, got {model_size}"

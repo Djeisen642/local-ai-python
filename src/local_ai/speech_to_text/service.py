@@ -608,35 +608,41 @@ class SpeechToTextService:
                         audio_buffer.pop(0)
 
                     # Check for speech in current chunk with performance monitoring
-                    # Split audio chunk into VAD-compatible frames if needed
+                    # Process ALL VAD frames in the chunk to avoid missing speech
                     vad_frame_size = (
                         self._vad.frame_size * 2
                     )  # Convert samples to bytes (16-bit audio)
 
-                    if len(audio_chunk) == vad_frame_size:
-                        # Perfect match, process directly
-                        if self._monitoring_enabled:
-                            with PerformanceContext(
-                                "vad", metadata={"chunk_size": len(audio_chunk)}
-                            ):
-                                is_speech = self._vad.is_speech(audio_chunk)
-                        else:
-                            is_speech = self._vad.is_speech(audio_chunk)
-                    elif len(audio_chunk) > vad_frame_size:
-                        # Chunk is larger, use the first VAD frame
-                        vad_frame = audio_chunk[:vad_frame_size]
-                        if self._monitoring_enabled:
-                            with PerformanceContext(
-                                "vad", metadata={"chunk_size": len(vad_frame)}
-                            ):
-                                is_speech = self._vad.is_speech(vad_frame)
-                        else:
-                            is_speech = self._vad.is_speech(vad_frame)
-                        logger.trace(
-                            f"Using {vad_frame_size} of {len(audio_chunk)} bytes for VAD"
-                        )
+                    is_speech = False
+
+                    if len(audio_chunk) >= vad_frame_size:
+                        # Process all complete VAD frames in the chunk
+                        frames_checked = 0
+                        for i in range(0, len(audio_chunk), vad_frame_size):
+                            frame = audio_chunk[i : i + vad_frame_size]
+
+                            # Only process complete frames
+                            if len(frame) == vad_frame_size:
+                                frames_checked += 1
+                                if self._monitoring_enabled:
+                                    with PerformanceContext(
+                                        "vad", metadata={"chunk_size": len(frame)}
+                                    ):
+                                        frame_has_speech = self._vad.is_speech(frame)
+                                else:
+                                    frame_has_speech = self._vad.is_speech(frame)
+
+                                if frame_has_speech:
+                                    is_speech = True
+                                    break  # Found speech, no need to check remaining frames
+
+                        if frames_checked > 1:
+                            logger.trace(
+                                f"Checked {frames_checked} VAD frames in chunk, "
+                                f"speech detected: {is_speech}"
+                            )
                     else:
-                        # Chunk is smaller, skip VAD for this chunk
+                        # Chunk is smaller than one VAD frame, skip VAD for this chunk
                         is_speech = False
                         logger.trace(
                             f"Chunk too small: {len(audio_chunk)} < {vad_frame_size}"

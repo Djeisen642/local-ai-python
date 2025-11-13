@@ -1,5 +1,7 @@
 """Configuration constants for speech-to-text functionality."""
 
+from pathlib import Path
+
 # Audio Configuration
 DEFAULT_SAMPLE_RATE = 16000  # Hz, optimal for speech recognition
 DEFAULT_CHUNK_SIZE = 1024  # samples per chunk
@@ -37,7 +39,7 @@ DEFAULT_TRANSCRIPTION_TIMEOUT = 30  # seconds
 
 LATENCY_MIN_SPEECH_DURATION = 0.3  # seconds - shorter for responsiveness
 LATENCY_MAX_SILENCE_DURATION = 1.0  # seconds - faster cutoff
-LATENCY_CHUNK_SIZE = 512  # smaller chunks
+LATENCY_CHUNK_SIZE = 480  # Aligned with 30ms VAD frame at 16kHz (480 samples = 960 bytes)
 LATENCY_VAD_FRAME_DURATION = 20  # milliseconds
 
 ACCURACY_MIN_SPEECH_DURATION = 0.8  # seconds - longer for quality
@@ -367,6 +369,12 @@ OPT_MODEL_SIZE_LARGE = "large"  # Large Whisper model
 OPT_MODEL_SIZE_MEDIUM = "medium"  # Medium Whisper model
 OPT_MODEL_SIZE_SMALL = "small"  # Small Whisper model
 OPT_MODEL_SIZE_TINY = "tiny"  # Tiny Whisper model
+OPT_USE_ENGLISH_ONLY_MODEL = (
+    True  # Use English-only models (.en suffix) for better performance
+)
+OPT_USE_DISTILLED_MODELS = (
+    True  # Use distilled models for better speed/accuracy tradeoff (experimental)
+)
 
 # Optimization - Compute Type Constants
 OPT_COMPUTE_TYPE_INT8 = "int8"  # INT8 compute type (CPU optimized)
@@ -402,3 +410,10 @@ OPT_ADAPTIVE_RECENT_WINDOW = 3  # Recent performance window size
 OPT_ADAPTIVE_LATENCY_THRESHOLD = 5.0  # seconds - high latency threshold
 OPT_ADAPTIVE_SILENCE_REDUCTION = 0.5  # seconds - silence duration reduction
 OPT_ADAPTIVE_INTERVAL_MAX = 0.05  # seconds - maximum processing interval
+
+# Audio Debugging Configuration
+AUDIO_DEBUG_ENABLED = False  # Default disabled
+AUDIO_DEBUG_DEFAULT_DIR = (
+    Path.home() / ".cache" / "local_ai" / "audio_debug"
+)  # Default output directory
+AUDIO_DEBUG_FILENAME_FORMAT = "audio_{date}_{time}_{duration_ms}.wav"  # Filename format

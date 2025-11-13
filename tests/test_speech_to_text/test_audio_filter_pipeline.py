@@ -6,8 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from src.local_ai.speech_to_text.audio_filtering.models import FilterStats, NoiseType
-from src.local_ai.speech_to_text.models import AudioChunk
+
+from local_ai.speech_to_text.audio_filtering.models import FilterStats, NoiseType
+from local_ai.speech_to_text.models import AudioChunk
 
 
 @pytest.mark.unit
@@ -75,7 +76,7 @@ class TestAudioFilterPipeline:
     @pytest.mark.asyncio
     async def test_audio_filter_pipeline_initialization(self, sample_rate: int):
         """Test AudioFilterPipeline can be initialized with proper parameters."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -94,7 +95,7 @@ class TestAudioFilterPipeline:
         self, sample_rate: int, audio_chunk: AudioChunk
     ):
         """Test AudioFilterPipeline passes through audio when disabled."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -120,12 +121,12 @@ class TestAudioFilterPipeline:
         mock_adaptive_processor,
     ):
         """Test real-time audio chunk processing meets timing requirements (<50ms)."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=mock_noise_reduction),
             AudioNormalizer=MagicMock(return_value=mock_audio_normalizer),
             SpectralEnhancer=MagicMock(return_value=mock_spectral_enhancer),
@@ -158,12 +159,12 @@ class TestAudioFilterPipeline:
         mock_adaptive_processor,
     ):
         """Test filter chain management and proper filter ordering."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=mock_noise_reduction),
             AudioNormalizer=MagicMock(return_value=mock_audio_normalizer),
             SpectralEnhancer=MagicMock(return_value=mock_spectral_enhancer),
@@ -191,12 +192,12 @@ class TestAudioFilterPipeline:
         mock_audio_normalizer,
     ):
         """Test filter bypass functionality for individual filters."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=mock_noise_reduction),
             AudioNormalizer=MagicMock(return_value=mock_audio_normalizer),
         ):
@@ -223,12 +224,12 @@ class TestAudioFilterPipeline:
         mock_audio_normalizer,
     ):
         """Test performance monitoring and latency tracking accuracy."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=mock_noise_reduction),
             AudioNormalizer=MagicMock(return_value=mock_audio_normalizer),
         ):
@@ -252,12 +253,12 @@ class TestAudioFilterPipeline:
         self, sample_rate: int, mock_noise_reduction, mock_audio_normalizer
     ):
         """Test concurrent processing of multiple audio chunks."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=mock_noise_reduction),
             AudioNormalizer=MagicMock(return_value=mock_audio_normalizer),
         ):
@@ -291,12 +292,12 @@ class TestAudioFilterPipeline:
         self, sample_rate: int, audio_chunk: AudioChunk, mock_noise_reduction
     ):
         """Test noise profile setting and management."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
         with patch(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline.NoiseReductionEngine",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline.NoiseReductionEngine",
             return_value=mock_noise_reduction,
         ):
             pipeline = AudioFilterPipeline(sample_rate=sample_rate, enable_filtering=True)
@@ -317,12 +318,12 @@ class TestAudioFilterPipeline:
         mock_adaptive_processor,
     ):
         """Test resetting adaptive filters."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=mock_noise_reduction),
             AudioNormalizer=MagicMock(return_value=mock_audio_normalizer),
             AdaptiveProcessor=MagicMock(return_value=mock_adaptive_processor),
@@ -364,7 +365,7 @@ class TestAudioFilterPipelineErrorHandling:
         self, sample_rate: int, audio_chunk: AudioChunk
     ):
         """Test filter failure detection and bypass mechanisms."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -378,7 +379,7 @@ class TestAudioFilterPipelineErrorHandling:
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=failing_filter),
             AudioNormalizer=MagicMock(return_value=working_filter),
         ):
@@ -397,7 +398,7 @@ class TestAudioFilterPipelineErrorHandling:
         self, sample_rate: int, audio_chunk: AudioChunk
     ):
         """Test performance-based filter complexity adjustment."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -416,7 +417,7 @@ class TestAudioFilterPipelineErrorHandling:
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=slow_filter),
             AudioNormalizer=MagicMock(return_value=fast_filter),
         ):
@@ -435,7 +436,7 @@ class TestAudioFilterPipelineErrorHandling:
         self, sample_rate: int, audio_chunk: AudioChunk
     ):
         """Test fallback to unfiltered audio processing on various error conditions."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -452,7 +453,7 @@ class TestAudioFilterPipelineErrorHandling:
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=failing_noise_filter),
             AudioNormalizer=MagicMock(return_value=failing_normalizer),
             SpectralEnhancer=MagicMock(return_value=failing_enhancer),
@@ -474,7 +475,7 @@ class TestAudioFilterPipelineErrorHandling:
         self, sample_rate: int, audio_chunk: AudioChunk
     ):
         """Test handling of memory constraints during processing."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -488,7 +489,7 @@ class TestAudioFilterPipelineErrorHandling:
         )
 
         with patch.multiple(
-            "src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
+            "local_ai.speech_to_text.audio_filtering.audio_filter_pipeline",
             NoiseReductionEngine=MagicMock(return_value=memory_constrained_filter),
             AudioNormalizer=MagicMock(return_value=backup_filter),
         ):
@@ -505,7 +506,7 @@ class TestAudioFilterPipelineErrorHandling:
     @pytest.mark.asyncio
     async def test_invalid_audio_data_handling(self, sample_rate: int):
         """Test handling of invalid or corrupted audio data."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -569,7 +570,7 @@ class TestAudioFilterPipelineIntegration:
         self, sample_rate: int, real_audio_chunk: AudioChunk
     ):
         """Test end-to-end filtering pipeline with real components."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 
@@ -591,7 +592,7 @@ class TestAudioFilterPipelineIntegration:
     @pytest.mark.asyncio
     async def test_streaming_audio_processing(self, sample_rate: int):
         """Test streaming audio processing with multiple consecutive chunks."""
-        from src.local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
+        from local_ai.speech_to_text.audio_filtering.audio_filter_pipeline import (
             AudioFilterPipeline,
         )
 

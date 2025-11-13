@@ -3,7 +3,8 @@
 import numpy as np
 import pytest
 from scipy import signal
-from src.local_ai.speech_to_text.audio_filtering.spectral_enhancer import SpectralEnhancer
+
+from local_ai.speech_to_text.audio_filtering.spectral_enhancer import SpectralEnhancer
 
 
 class TestSpectralEnhancerHighPassFilter:

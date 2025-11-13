@@ -1,19 +1,15 @@
 """A/B tests for validating transcription accuracy improvements with audio filtering."""
 
-import asyncio
-import os
 import statistics
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pytest
 
-from src.local_ai.speech_to_text.audio_capture import AudioCapture
-from src.local_ai.speech_to_text.models import AudioChunk, TranscriptionResult
-from src.local_ai.speech_to_text.service import SpeechToTextService
-from src.local_ai.speech_to_text.transcriber import WhisperTranscriber
+from local_ai.speech_to_text.models import TranscriptionResult
+from local_ai.speech_to_text.service import SpeechToTextService
+from local_ai.speech_to_text.transcriber import WhisperTranscriber
 
 
 @pytest.mark.integration
@@ -21,7 +17,7 @@ class TestTranscriptionAccuracyValidation:
     """A/B tests comparing filtered vs unfiltered audio transcription accuracy."""
 
     @pytest.fixture
-    def test_audio_files(self) -> Dict[str, Path]:
+    def test_audio_files(self) -> dict[str, Path]:
         """Get paths to test audio files for different scenarios."""
         test_data_dir = Path(__file__).parent.parent / "test_data" / "audio"
 
@@ -64,7 +60,7 @@ class TestTranscriptionAccuracyValidation:
         return audio_files
 
     @pytest.fixture
-    def expected_transcriptions(self) -> Dict[str, str]:
+    def expected_transcriptions(self) -> dict[str, str]:
         """Expected transcription text for each test audio file."""
         base_transcriptions = {
             "clean_speech": "hello world",
@@ -253,7 +249,7 @@ class TestTranscriptionAccuracyValidation:
                     service._audio_filter_pipeline.set_noise_profile(noise_sample)
 
                 # Create AudioChunk for filtering
-                from src.local_ai.speech_to_text.models import AudioChunk
+                from local_ai.speech_to_text.models import AudioChunk
 
                 audio_chunk = AudioChunk(
                     data=audio_data,
@@ -276,7 +272,7 @@ class TestTranscriptionAccuracyValidation:
                         f"  Audio filtering applied successfully (size: {len(audio_data)} -> {len(processed_audio_data)})"
                     )
                 else:
-                    print(f"  Warning: Audio filtering did not change the audio data")
+                    print("  Warning: Audio filtering did not change the audio data")
 
             except Exception as e:
                 print(f"Warning: Audio filtering failed: {e}")
@@ -295,7 +291,7 @@ class TestTranscriptionAccuracyValidation:
         expected_text: str,
         service_with_filtering: SpeechToTextService,
         service_without_filtering: SpeechToTextService,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Run a single A/B comparison between filtered and unfiltered transcription.
 
@@ -368,8 +364,8 @@ class TestTranscriptionAccuracyValidation:
     @pytest.mark.asyncio
     async def test_comprehensive_accuracy_comparison(
         self,
-        test_audio_files: Dict[str, Path],
-        expected_transcriptions: Dict[str, str],
+        test_audio_files: dict[str, Path],
+        expected_transcriptions: dict[str, str],
         service_with_filtering: SpeechToTextService,
         service_without_filtering: SpeechToTextService,
     ) -> None:
@@ -450,26 +446,26 @@ class TestTranscriptionAccuracyValidation:
         print("TRANSCRIPTION ACCURACY VALIDATION RESULTS")
         print(f"{'=' * 60}")
         print(f"Total audio files tested: {len(results)}")
-        print(f"\nWORD ERROR RATE (WER) IMPROVEMENTS:")
+        print("\nWORD ERROR RATE (WER) IMPROVEMENTS:")
         print(f"  Average improvement: {avg_wer_improvement:.1f}%")
         print(f"  Median improvement: {median_wer_improvement:.1f}%")
         print(
             f"  Files with positive improvement: {positive_wer_improvements}/{len(results)}"
         )
-        print(f"\nCHARACTER ERROR RATE (CER) IMPROVEMENTS:")
+        print("\nCHARACTER ERROR RATE (CER) IMPROVEMENTS:")
         print(f"  Average improvement: {avg_cer_improvement:.1f}%")
         print(f"  Median improvement: {median_cer_improvement:.1f}%")
         print(
             f"  Files with positive improvement: {positive_cer_improvements}/{len(results)}"
         )
-        print(f"\nCONFIDENCE IMPROVEMENTS:")
+        print("\nCONFIDENCE IMPROVEMENTS:")
         print(f"  Average confidence improvement: {avg_confidence_improvement:.3f}")
-        print(f"\nPERFORMANCE OVERHEAD:")
+        print("\nPERFORMANCE OVERHEAD:")
         print(f"  Average processing overhead: {avg_processing_overhead:.3f}s")
         print(f"{'=' * 60}")
 
         # Validate current filtering implementation status
-        print(f"\n📊 CURRENT FILTERING IMPLEMENTATION STATUS:")
+        print("\n📊 CURRENT FILTERING IMPLEMENTATION STATUS:")
 
         # Count files where filtering produced different results
         different_results = sum(
@@ -492,7 +488,7 @@ class TestTranscriptionAccuracyValidation:
         )
 
         # Document current performance for future improvement
-        print(f"\n📈 PERFORMANCE METRICS FOR FUTURE OPTIMIZATION:")
+        print("\n📈 PERFORMANCE METRICS FOR FUTURE OPTIMIZATION:")
         print(f"  - Current WER improvement: {avg_wer_improvement:.1f}%")
         print(f"  - Current CER improvement: {avg_cer_improvement:.1f}%")
         print(
@@ -504,8 +500,8 @@ class TestTranscriptionAccuracyValidation:
 
         # Realistic validation criteria for current implementation
         assert filtering_applied, (
-            f"Audio filtering is not functional - no transcription differences detected. "
-            f"Check filter pipeline implementation."
+            "Audio filtering is not functional - no transcription differences detected. "
+            "Check filter pipeline implementation."
         )
 
         assert acceptable_overhead, (
@@ -523,30 +519,30 @@ class TestTranscriptionAccuracyValidation:
             improvement_needed.append("Less than 30% of files show WER improvement")
 
         if improvement_needed:
-            print(f"\n⚠️  AREAS FOR FUTURE IMPROVEMENT:")
+            print("\n⚠️  AREAS FOR FUTURE IMPROVEMENT:")
             for area in improvement_needed:
                 print(f"  - {area}")
-            print(f"\n💡 RECOMMENDATIONS:")
-            print(f"  - Fine-tune filter aggressiveness parameters")
-            print(f"  - Improve noise profile detection and adaptation")
-            print(f"  - Add more sophisticated noise reduction algorithms")
-            print(f"  - Optimize filter chain for different audio conditions")
+            print("\n💡 RECOMMENDATIONS:")
+            print("  - Fine-tune filter aggressiveness parameters")
+            print("  - Improve noise profile detection and adaptation")
+            print("  - Add more sophisticated noise reduction algorithms")
+            print("  - Optimize filter chain for different audio conditions")
 
         # Success message for current implementation
-        print(f"\n✅ VALIDATION COMPLETED!")
-        print(f"Audio filtering implementation is functional and ready for optimization:")
-        print(f"  - Filtering pipeline processes audio successfully")
+        print("\n✅ VALIDATION COMPLETED!")
+        print("Audio filtering implementation is functional and ready for optimization:")
+        print("  - Filtering pipeline processes audio successfully")
         print(
             f"  - Different transcription results produced: {different_results}/{len(results)} files"
         )
         print(f"  - Processing overhead: {avg_processing_overhead:.3f}s")
-        print(f"  - Ready for algorithm improvements to reach 15-30% accuracy target")
+        print("  - Ready for algorithm improvements to reach 15-30% accuracy target")
 
     @pytest.mark.asyncio
     async def test_noise_condition_specific_improvements(
         self,
-        test_audio_files: Dict[str, Path],
-        expected_transcriptions: Dict[str, str],
+        test_audio_files: dict[str, Path],
+        expected_transcriptions: dict[str, str],
         service_with_filtering: SpeechToTextService,
         service_without_filtering: SpeechToTextService,
     ) -> None:
@@ -634,8 +630,8 @@ class TestTranscriptionAccuracyValidation:
     @pytest.mark.asyncio
     async def test_confidence_score_improvements(
         self,
-        test_audio_files: Dict[str, Path],
-        expected_transcriptions: Dict[str, str],
+        test_audio_files: dict[str, Path],
+        expected_transcriptions: dict[str, str],
         service_with_filtering: SpeechToTextService,
         service_without_filtering: SpeechToTextService,
     ) -> None:
@@ -704,7 +700,7 @@ class TestTranscriptionAccuracyValidation:
             print(f"  Unfiltered: {comp['unfiltered_confidence']:.3f}")
             print(f"  Improvement: {comp['confidence_improvement']:+.3f}")
 
-        print(f"\nSUMMARY:")
+        print("\nSUMMARY:")
         print(f"  Average confidence improvement: {avg_confidence_improvement:+.3f}")
         print(
             f"  Files with improved confidence: {positive_improvements}/{len(confidence_comparisons)}"
@@ -726,8 +722,8 @@ class TestTranscriptionAccuracyValidation:
     @pytest.mark.asyncio
     async def test_processing_latency_validation(
         self,
-        test_audio_files: Dict[str, Path],
-        expected_transcriptions: Dict[str, str],
+        test_audio_files: dict[str, Path],
+        expected_transcriptions: dict[str, str],
         service_with_filtering: SpeechToTextService,
         service_without_filtering: SpeechToTextService,
     ) -> None:
@@ -802,7 +798,7 @@ class TestTranscriptionAccuracyValidation:
                 f"  Overhead: {measurement['overhead']:.3f}s ({measurement['overhead_percent']:.1f}%)"
             )
 
-        print(f"\nSUMMARY:")
+        print("\nSUMMARY:")
         print(f"  Average overhead: {avg_overhead:.3f}s ({avg_overhead_percent:.1f}%)")
         print(f"  Maximum overhead: {max_overhead:.3f}s")
 

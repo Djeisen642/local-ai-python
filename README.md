@@ -215,6 +215,26 @@ See [Task Management Guide](docs/task-management-guide.md) for API examples, con
 
 The speech-to-text system uses optimized defaults but can be customized by modifying the configuration constants in `src/local_ai/speech_to_text/config.py`:
 
+### Model Optimization
+
+**English-Only Models** (enabled by default):
+
+```python
+# In src/local_ai/speech_to_text/config.py
+OPT_USE_ENGLISH_ONLY_MODEL = True  # Use .en models for better performance
+```
+
+**Distilled Models** (experimental, disabled by default):
+
+```python
+# In src/local_ai/speech_to_text/config.py
+OPT_USE_DISTILLED_MODELS = True  # Enable faster distilled models
+
+# When enabled:
+# - tiny/small/medium → distil-medium.en (faster than small.en)
+# - large → distil-large-v3 (much faster than large-v3)
+```
+
 ### Audio Settings
 
 - **Sample Rate**: 16kHz (optimal for speech)
@@ -223,8 +243,30 @@ The speech-to-text system uses optimized defaults but can be customized by modif
 
 ### Model Selection
 
-- **Default**: Whisper Small (244MB) - Best balance for 8GB GPU
-- **Alternatives**: Tiny (39MB), Medium (769MB), Large (1550MB)
+The system automatically selects optimal Whisper models based on your hardware:
+
+- **English-Only Models** (default): Faster and more accurate for English speech
+  - Uses `.en` suffix (e.g., `small.en`, `medium.en`)
+  - ~2x faster than multilingual models
+  - Automatically enabled for English-only use
+- **Distilled Models** (experimental): Even faster with similar accuracy
+  - `distil-medium.en`: ~2x faster than `medium.en`
+  - `distil-large-v3`: ~6x faster than `large-v3`
+  - Disabled by default, can be enabled in config
+
+**Default Models:**
+
+- **CPU**: `small.en` (244MB) - Best balance for most systems
+- **4GB GPU**: `small.en` (244MB) - Fast with good accuracy
+- **8GB+ GPU**: `medium.en` (769MB) - Better accuracy
+- **16GB+ GPU**: `large` (1550MB) - Best accuracy
+
+**Alternative Models:**
+
+- `tiny.en` (39MB) - Fastest, lower accuracy
+- `small.en` (244MB) - Recommended default
+- `medium.en` (769MB) - Better accuracy
+- `large` (1550MB) - Best accuracy (no .en variant)
 
 ### Voice Activity Detection
 
@@ -258,12 +300,19 @@ The speech-to-text system uses optimized defaults but can be customized by modif
 
 ### Expected Performance
 
-| Hardware  | Model  | Latency | Accuracy |
-| --------- | ------ | ------- | -------- |
-| CPU Only  | Small  | 3-5s    | Good     |
-| 8GB GPU   | Small  | 1-2s    | Good     |
-| 8GB GPU   | Medium | 2-3s    | Better   |
-| 16GB+ GPU | Large  | 2-4s    | Best     |
+| Hardware  | Model     | Latency | Accuracy | Notes                       |
+| --------- | --------- | ------- | -------- | --------------------------- |
+| CPU Only  | small.en  | 2-3s    | Good     | English-only, optimized     |
+| 4GB GPU   | small.en  | 1-1.5s  | Good     | English-only, fast          |
+| 8GB GPU   | medium.en | 1.5-2s  | Better   | English-only, accurate      |
+| 16GB+ GPU | large     | 2-3s    | Best     | Multilingual, most accurate |
+
+**With Distilled Models (experimental):**
+| Hardware | Model | Latency | Accuracy | Speedup |
+| --------- | ------------------ | ------- | -------- | ------- |
+| CPU Only | distil-medium.en | 1.5-2s | Good | ~2x |
+| 8GB GPU | distil-medium.en | 0.8-1s | Better | ~2x |
+| 16GB+ GPU | distil-large-v3 | 1-1.5s | Best | ~6x |
 
 ## Development
 
@@ -416,41 +465,62 @@ conda install pyaudio
 
 #### GPU vs CPU Performance
 
-| Setup     | Whisper Model | Typical Latency | Memory Usage |
-| --------- | ------------- | --------------- | ------------ |
-| CPU Only  | Tiny          | 2-3s            | 1GB RAM      |
-| CPU Only  | Small         | 4-6s            | 2GB RAM      |
-| 4GB GPU   | Tiny          | 1s              | 500MB VRAM   |
-| 4GB GPU   | Small         | 1.5s            | 1GB VRAM     |
-| 8GB GPU   | Small         | 1s              | 1GB VRAM     |
-| 8GB GPU   | Medium        | 1.5s            | 2GB VRAM     |
-| 16GB+ GPU | Large         | 2s              | 4GB VRAM     |
+**Standard English-Only Models:**
+
+| Setup     | Whisper Model | Typical Latency | Memory Usage | Notes           |
+| --------- | ------------- | --------------- | ------------ | --------------- |
+| CPU Only  | tiny.en       | 1.5-2s          | 1GB RAM      | Fastest CPU     |
+| CPU Only  | small.en      | 2-3s            | 2GB RAM      | Recommended CPU |
+| 4GB GPU   | tiny.en       | 0.5s            | 500MB VRAM   | Very fast       |
+| 4GB GPU   | small.en      | 1s              | 1GB VRAM     | Recommended     |
+| 8GB GPU   | small.en      | 0.8s            | 1GB VRAM     | Fast & accurate |
+| 8GB GPU   | medium.en     | 1.5s            | 2GB VRAM     | More accurate   |
+| 16GB+ GPU | large         | 2-3s            | 4GB VRAM     | Best accuracy   |
+
+**Distilled Models (Experimental - Enable in Config):**
+
+| Setup     | Whisper Model    | Typical Latency | Memory Usage | Speedup |
+| --------- | ---------------- | --------------- | ------------ | ------- |
+| CPU Only  | distil-medium.en | 1.5-2s          | 2GB RAM      | ~2x     |
+| 8GB GPU   | distil-medium.en | 0.8-1s          | 2GB VRAM     | ~2x     |
+| 16GB+ GPU | distil-large-v3  | 1-1.5s          | 4GB VRAM     | ~6x     |
 
 #### Model Selection Guide
 
-**Choose Whisper Tiny if:**
+**English-Only Models (Recommended for English):**
+
+All models with `.en` suffix are optimized for English and provide ~2x speedup:
+
+**Choose `tiny.en` if:**
 
 - Limited GPU memory (2-4GB)
-- Speed is more important than accuracy
+- Speed is critical
 - Testing or development use
 
-**Choose Whisper Small if:** (Recommended)
+**Choose `small.en` if:** (Recommended Default)
 
 - 4GB+ GPU memory available
-- Good balance of speed and accuracy needed
-- General purpose use
+- Best balance of speed and accuracy
+- General purpose English transcription
 
-**Choose Whisper Medium if:**
+**Choose `medium.en` if:**
 
 - 8GB+ GPU memory available
 - Higher accuracy needed
 - Can accept slightly slower processing
 
-**Choose Whisper Large if:**
+**Choose `large` if:**
 
 - 16GB+ GPU memory available
 - Maximum accuracy required
-- Processing time is not critical
+- Need multilingual support (no .en variant)
+
+**Distilled Models (Experimental):**
+
+Enable in config for even faster processing:
+
+- `distil-medium.en`: Best for most users (~2x faster than medium.en)
+- `distil-large-v3`: For high-end GPUs (~6x faster than large-v3)
 
 ### Known Warnings (Safe to Ignore)
 
