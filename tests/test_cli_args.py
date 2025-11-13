@@ -218,6 +218,97 @@ class TestArgumentParser:
         assert args.no_confidence is True
         assert args.reset_model_cache is True
 
+    def test_debug_audio_argument(self) -> None:
+        """Test --debug-audio argument parsing."""
+        parser = create_argument_parser()
+
+        # Test with --debug-audio
+        args = parser.parse_args(["--debug-audio"])
+        assert args.debug_audio is True
+
+        # Test without --debug-audio
+        args = parser.parse_args([])
+        assert args.debug_audio is False
+
+    def test_debug_audio_dir_argument(self) -> None:
+        """Test --debug-audio-dir argument parsing."""
+        parser = create_argument_parser()
+
+        # Test with --debug-audio-dir and custom path
+        args = parser.parse_args(["--debug-audio-dir", "/tmp/audio_debug"])
+        assert args.debug_audio_dir == "/tmp/audio_debug"
+
+        # Test without --debug-audio-dir (should be None)
+        args = parser.parse_args([])
+        assert args.debug_audio_dir is None
+
+    def test_debug_audio_with_debug_audio_dir(self) -> None:
+        """Test combining --debug-audio with --debug-audio-dir."""
+        parser = create_argument_parser()
+
+        # Test both flags together
+        args = parser.parse_args(["--debug-audio", "--debug-audio-dir", "/custom/path"])
+        assert args.debug_audio is True
+        assert args.debug_audio_dir == "/custom/path"
+
+    def test_debug_audio_dir_without_debug_audio(self) -> None:
+        """Test --debug-audio-dir without --debug-audio flag."""
+        parser = create_argument_parser()
+
+        # Test that --debug-audio-dir can be specified without --debug-audio
+        args = parser.parse_args(["--debug-audio-dir", "/tmp/debug"])
+        assert args.debug_audio_dir == "/tmp/debug"
+        assert args.debug_audio is False
+
+    def test_debug_audio_combined_with_other_arguments(self) -> None:
+        """Test combining --debug-audio with other CLI arguments."""
+        parser = create_argument_parser()
+
+        # Test with --verbose
+        args = parser.parse_args(["--debug-audio", "--verbose"])
+        assert args.debug_audio is True
+        assert args.verbose is True
+
+        # Test with --force-cpu
+        args = parser.parse_args(["--debug-audio", "--force-cpu"])
+        assert args.debug_audio is True
+        assert args.force_cpu is True
+
+        # Test with multiple flags
+        args = parser.parse_args(
+            [
+                "--debug-audio",
+                "--debug-audio-dir",
+                "/tmp/test",
+                "--verbose",
+                "--force-cpu",
+            ]
+        )
+        assert args.debug_audio is True
+        assert args.debug_audio_dir == "/tmp/test"
+        assert args.verbose is True
+        assert args.force_cpu is True
+
+    def test_debug_audio_help_text(self) -> None:
+        """Test that --debug-audio and --debug-audio-dir appear in help text."""
+        parser = create_argument_parser()
+
+        with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
+            with pytest.raises(SystemExit):
+                parser.parse_args(["--help"])
+
+            help_output = mock_stdout.getvalue()
+            assert "--debug-audio" in help_output
+            assert "--debug-audio-dir" in help_output
+            assert (
+                "Enable audio debugging" in help_output
+                or "audio debugging" in help_output.lower()
+            )
+            assert (
+                "output directory" in help_output.lower()
+                or "custom" in help_output.lower()
+            )
+
 
 @pytest.mark.unit
 class TestArgumentHandling:

@@ -8,6 +8,7 @@ A privacy-focused AI application that provides AI capabilities without requiring
 - [Quick Start](#quick-start)
 - [Usage](#usage)
 - [Configuration](#configuration)
+- [Audio Debugging](#audio-debugging)
 - [Performance](#performance)
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
@@ -148,6 +149,12 @@ local-ai --verbose
 
 # Force CPU-only mode (disable GPU)
 local-ai --force-cpu
+
+# Enable audio debugging (save processed audio to WAV files)
+local-ai --debug-audio
+
+# Enable audio debugging with custom output directory
+local-ai --debug-audio --debug-audio-dir /path/to/output
 ```
 
 #### Python API
@@ -281,6 +288,243 @@ The system automatically selects optimal Whisper models based on your hardware:
 - **Calculation**: Based on Whisper's average log probability scores
 - **Display**: Shown as percentage in CLI output (can be hidden with `--no-confidence`)
 - **Typical Values**: 70-95% for clear speech, lower for noisy or unclear audio
+
+## Audio Debugging
+
+The audio debugging feature allows you to capture and save the processed audio that is sent to the Whisper transcription model. This is useful for diagnosing transcription issues, understanding audio preprocessing effects, and validating audio quality.
+
+### Enabling Audio Debugging
+
+**Via Command Line:**
+
+```bash
+# Enable audio debugging with default directory
+local-ai --debug-audio
+
+# Enable with custom output directory
+local-ai --debug-audio --debug-audio-dir /tmp/audio_debug
+
+# Combine with other options
+local-ai --debug-audio --verbose --no-confidence
+```
+
+**Via Python API:**
+
+```python
+from pathlib import Path
+from local_ai.speech_to_text.audio_debugger import AudioDebugger
+from local_ai.speech_to_text.transcriber import WhisperTranscriber
+
+# Create audio debugger
+debugger = AudioDebugger(
+    enabled=True,
+    output_dir=Path("/tmp/audio_debug")
+)
+
+# Create transcriber with debugger
+transcriber = WhisperTranscriber(
+    model_size="small",
+    audio_debugger=debugger
+)
+
+# Use normally - audio will be saved automatically
+result = await transcriber.transcribe_audio_with_result(audio_data)
+```
+
+### Output Files
+
+**Default Location:**
+
+```
+~/.cache/local_ai/audio_debug/
+```
+
+**File Naming Convention:**
+
+```
+audio_{YYYYMMDD}_{HHMMSS}_{duration_ms}.wav
+```
+
+**Example:**
+
+```
+audio_20241112_143022_500ms.wav
+```
+
+- **Date**: November 12, 2024
+- **Time**: 14:30:22 (24-hour format)
+- **Duration**: 500 milliseconds
+
+**WAV File Format:**
+
+- **Sample Rate**: 16000 Hz (matches Whisper input)
+- **Channels**: 1 (mono)
+- **Sample Width**: 16-bit PCM
+- **Format**: Standard WAV with proper headers
+
+These files can be played back with any audio player or analyzed with audio tools like Audacity.
+
+### Usage Examples
+
+**Debugging Transcription Accuracy:**
+
+```bash
+# Enable audio debugging
+local-ai --debug-audio
+
+# Speak into microphone
+# Check saved WAV files to verify audio quality
+ls -lh ~/.cache/local_ai/audio_debug/
+
+# Play back a saved file
+aplay ~/.cache/local_ai/audio_debug/audio_20241112_143022_500ms.wav
+```
+
+**Analyzing Audio Preprocessing:**
+
+```bash
+# Save to custom directory for analysis
+local-ai --debug-audio --debug-audio-dir ./audio_analysis
+
+# Use audio analysis tools
+ffprobe ./audio_analysis/audio_20241112_143022_500ms.wav
+```
+
+**Comparing Different Configurations:**
+
+```bash
+# Test with different settings
+local-ai --debug-audio --debug-audio-dir ./test1
+# Change configuration, then:
+local-ai --debug-audio --debug-audio-dir ./test2
+# Compare audio files between directories
+```
+
+### Troubleshooting Audio Debugging
+
+#### Directory Permission Issues
+
+**Error: "Permission denied" when creating debug directory**
+
+```bash
+# Check directory permissions
+ls -ld ~/.cache/local_ai/
+
+# Fix permissions
+chmod 755 ~/.cache/local_ai/
+
+# Or use a different directory
+local-ai --debug-audio --debug-audio-dir /tmp/audio_debug
+```
+
+#### Disk Space Issues
+
+**Error: "No space left on device"**
+
+```bash
+# Check available disk space
+df -h ~/.cache/local_ai/
+
+# Clean up old debug files
+rm ~/.cache/local_ai/audio_debug/*.wav
+
+# Or use a directory on a different partition
+local-ai --debug-audio --debug-audio-dir /mnt/storage/audio_debug
+```
+
+#### Files Not Being Created
+
+**Audio debugging enabled but no files appear:**
+
+1. **Verify debugging is enabled:**
+
+   ```bash
+   # Check for debug messages in verbose mode
+   local-ai --debug-audio --verbose
+   ```
+
+2. **Check directory exists and is writable:**
+
+   ```bash
+   # Verify directory
+   ls -ld ~/.cache/local_ai/audio_debug/
+
+   # Test write permissions
+   touch ~/.cache/local_ai/audio_debug/test.txt
+   rm ~/.cache/local_ai/audio_debug/test.txt
+   ```
+
+3. **Verify speech is being detected:**
+   - Ensure microphone is working
+   - Check that VAD is detecting speech
+   - Look for transcription output in console
+
+#### Audio Quality Issues in Saved Files
+
+**Saved audio sounds distorted or incorrect:**
+
+- Files are saved in the exact format sent to Whisper (16kHz, mono, 16-bit)
+- If audio sounds wrong, this indicates a preprocessing issue
+- Check microphone input levels and quality
+- Review VAD settings and audio filtering configuration
+
+**Files are silent or very quiet:**
+
+- Check microphone input volume in system settings
+- Verify audio normalization is working correctly
+- Test with `arecord` to ensure microphone is capturing audio
+
+### Performance Impact
+
+**When Disabled (Default):**
+
+- Zero performance overhead
+- Single boolean check per transcription
+
+**When Enabled:**
+
+- Minimal impact: typically <10ms per transcription
+- Synchronous file writes (fast for small WAV files)
+- Errors don't interrupt transcription
+- No impact on transcription accuracy or latency
+
+### Privacy and Security
+
+**Privacy Considerations:**
+
+- Audio files contain raw speech data
+- Files are stored locally (not transmitted)
+- Default directory is user-specific (`~/.cache/local_ai/`)
+- Consider data sensitivity when enabling
+
+**File Permissions:**
+
+- Files are created with user-only read/write permissions (0600)
+- Directory is created with standard permissions (0755)
+- No automatic cleanup - user manages files manually
+
+**Disk Space Management:**
+
+- Files are typically small (50-200KB each)
+- No automatic cleanup or rotation
+- User should periodically clean up debug directory
+- Consider disk space when enabling for extended periods
+
+**Cleanup Commands:**
+
+```bash
+# Remove all debug files
+rm -rf ~/.cache/local_ai/audio_debug/
+
+# Remove files older than 7 days
+find ~/.cache/local_ai/audio_debug/ -name "*.wav" -mtime +7 -delete
+
+# Remove files older than 1 day
+find ~/.cache/local_ai/audio_debug/ -name "*.wav" -mtime +1 -delete
+
+# Check total size
+du -sh ~/.cache/local_ai/audio_debug/
+```
 
 ## Performance
 

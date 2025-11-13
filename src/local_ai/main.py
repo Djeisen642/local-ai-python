@@ -139,6 +139,8 @@ Examples:
   python -m local_ai.main --reset-optimization-cache   # Clear optimization cache
   python -m local_ai.main -v --reset-model-cache       # Verbose + cache reset
   python -m local_ai.main --force-cpu                  # Force CPU-only mode (disable GPU)
+  python -m local_ai.main --debug-audio                # Enable audio debugging
+  python -m local_ai.main --debug-audio --debug-audio-dir /tmp/audio  # Custom debug directory
 
 Controls:
   Ctrl+C    - Stop and exit gracefully
@@ -183,6 +185,20 @@ Make sure your microphone is connected and permissions are granted.
         "--no-confidence",
         action="store_true",
         help="Hide confidence percentages in transcription output",
+    )
+
+    parser.add_argument(
+        "--debug-audio",
+        action="store_true",
+        help="Enable audio debugging (save processed audio to WAV files)",
+    )
+
+    parser.add_argument(
+        "--debug-audio-dir",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Custom output directory for audio debug files (default: ~/.cache/local_ai/audio_debug)",
     )
 
     return parser

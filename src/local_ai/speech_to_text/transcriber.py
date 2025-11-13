@@ -1,10 +1,12 @@
 """Whisper transcription functionality."""
 
+from __future__ import annotations
+
 import asyncio
 import io
 import time
 import wave
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -26,6 +28,9 @@ except ImportError:
 from .cache_utils import get_whisper_cache_dir
 from .models import TranscriptionResult
 
+if TYPE_CHECKING:
+    from .audio_debugger import AudioDebugger
+
 logger = get_logger(__name__)
 
 
@@ -33,7 +38,11 @@ class WhisperTranscriber:
     """Uses faster-whisper library for local speech-to-text conversion."""
 
     def __init__(
-        self, model_size: str = "small", device: str = "cpu", compute_type: str = "int8"
+        self,
+        model_size: str = "small",
+        device: str = "cpu",
+        compute_type: str = "int8",
+        audio_debugger: AudioDebugger | None = None,
     ) -> None:
         """
         Initialize Whisper transcriber.
@@ -42,12 +51,14 @@ class WhisperTranscriber:
             model_size: Size of Whisper model to use
             device: Device to use for inference ("cpu" or "cuda")
             compute_type: Compute type for inference ("int8", "float16", etc.)
+            audio_debugger: Optional AudioDebugger instance for saving audio files
         """
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
         self._model: Any | None = None
         self._model_loaded = False
+        self._audio_debugger = audio_debugger
 
     def _load_model(self) -> bool:
         """
@@ -482,6 +493,25 @@ class WhisperTranscriber:
             if not converted_audio:
                 logger.warning("Audio format conversion failed")
                 return self.create_transcription_result("", processing_start_time, 0.0)
+
+            # Debug: Save audio if debugging is enabled
+            if self._audio_debugger is not None and self._audio_debugger.is_enabled():
+                try:
+                    # Extract raw audio data from WAV format for saving
+                    # The converted_audio is in WAV format, extract the raw PCM data
+                    import wave as wave_module
+
+                    with io.BytesIO(converted_audio) as wav_buffer:
+                        with wave_module.open(wav_buffer, "rb") as wav_file:
+                            raw_audio_data = wav_file.readframes(wav_file.getnframes())
+
+                    saved_path = self._audio_debugger.save_audio_sync(
+                        raw_audio_data, sample_rate=DEFAULT_SAMPLE_RATE
+                    )
+                    if saved_path:
+                        logger.debug(f"Audio debug file saved: {saved_path}")
+                except Exception as e:
+                    logger.debug(f"Audio debug save failed: {e}")
 
             # Create a temporary file for faster-whisper to process
             import os

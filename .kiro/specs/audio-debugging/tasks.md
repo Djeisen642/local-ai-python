@@ -53,8 +53,8 @@
   - Define `AUDIO_DEBUG_ENABLED`, `AUDIO_DEBUG_DEFAULT_DIR`, and `AUDIO_DEBUG_FILENAME_FORMAT`
   - _Requirements: 2.1, 4.3_
 
-- [-] 3. TDD: WhisperTranscriber integration
-- [-] 3.1 Write tests for WhisperTranscriber with AudioDebugger
+- [x] 3. TDD: WhisperTranscriber integration
+- [x] 3.1 Write tests for WhisperTranscriber with AudioDebugger
 
   - Write failing tests for `WhisperTranscriber` accepting optional `audio_debugger` parameter
   - Write failing tests verifying audio is saved when debugger is enabled
@@ -62,7 +62,7 @@
   - Write failing tests verifying transcription continues when audio saving fails
   - _Requirements: 1.1, 1.4, 5.3_
 
-- [ ] 3.2 Implement WhisperTranscriber integration to pass tests
+- [x] 3.2 Implement WhisperTranscriber integration to pass tests
 
   - Modify `WhisperTranscriber.__init__` to accept optional `audio_debugger` parameter
   - Add audio debugging call in `transcribe_audio_with_result` after audio conversion
@@ -70,38 +70,38 @@
   - Add debug logging for audio save operations
   - _Requirements: 1.1, 1.4, 5.3_
 
-- [ ] 4. TDD: CLI argument parsing
-- [ ] 4.1 Write tests for CLI argument parsing
+- [x] 4. TDD: CLI argument parsing
+- [x] 4.1 Write tests for CLI argument parsing
 
   - Write failing tests for `--debug-audio` flag parsing
   - Write failing tests for `--debug-audio-dir` optional argument parsing
   - Write failing tests for default values when flags are not provided
   - _Requirements: 2.1, 2.2, 4.1, 4.2_
 
-- [ ] 4.2 Implement CLI argument parsing to pass tests
+- [x] 4.2 Implement CLI argument parsing to pass tests
 
   - Add `--debug-audio` flag to CLI argument parser in `src/local_ai/main.py`
   - Add `--debug-audio-dir` optional argument for custom output directory
   - Set appropriate default values and help text
   - _Requirements: 2.1, 2.2, 4.1, 4.2_
 
-- [ ] 5. TDD: SpeechToTextService integration
-- [ ] 5.1 Write tests for SpeechToTextService with AudioDebugger
+- [x] 5. TDD: SpeechToTextService integration
+- [x] 5.1 Write tests for SpeechToTextService with AudioDebugger
 
   - Write failing tests for service initialization with audio debugging enabled
   - Write failing tests verifying `AudioDebugger` is passed to `WhisperTranscriber`
   - Write failing tests for service initialization with audio debugging disabled
   - _Requirements: 2.1, 2.3_
 
-- [ ] 5.2 Implement SpeechToTextService integration to pass tests
+- [x] 5.2 Implement SpeechToTextService integration to pass tests
 
   - Modify `SpeechToTextService.initialize` to create `AudioDebugger` instance if enabled
   - Pass `AudioDebugger` instance to `WhisperTranscriber` constructor
   - Handle configuration from CLI arguments
   - _Requirements: 2.1, 2.3_
 
-- [ ] 6. Integration testing and validation
-- [ ] 6.1 Write end-to-end integration tests
+- [x] 6. Integration testing and validation
+- [x] 6.1 Write end-to-end integration tests
 
   - Write tests for complete flow from CLI args to file creation
   - Write tests verifying WAV file format matches Whisper input exactly
@@ -109,14 +109,14 @@
   - Write tests for custom output directory configuration
   - _Requirements: 1.1, 1.3, 2.1, 4.1_
 
-- [ ] 6.2 Run integration tests and verify functionality
+- [x] 6.2 Run integration tests and verify functionality
 
   - Run all integration tests and ensure they pass
   - Verify WAV files can be played back and analyzed
   - Verify no performance degradation when debugging is disabled
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [ ] 7. Documentation
+- [x] 7. Documentation
   - Add audio debugging section to README.md
   - Document `--debug-audio` and `--debug-audio-dir` CLI flags
   - Add usage examples for enabling audio debugging

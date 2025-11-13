@@ -31,6 +31,8 @@ class SpeechToTextService:
         enable_filtering: bool = False,
         enable_task_detection: bool = False,
         task_detection_service: Any | None = None,
+        enable_audio_debugging: bool = False,
+        audio_debug_dir: Any | None = None,
     ) -> None:
         """
         Initialize the speech-to-text service.
@@ -46,6 +48,8 @@ class SpeechToTextService:
             enable_task_detection: Whether to enable task detection from transcriptions
             task_detection_service: Optional TaskDetectionService instance for task
                 detection (if None and enable_task_detection is True, will be created)
+            enable_audio_debugging: Whether to enable audio debugging (saves audio to WAV)
+            audio_debug_dir: Optional directory for audio debug files (None = default)
         """
         self._listening = False
         self._transcription_result_callback: (
@@ -65,6 +69,11 @@ class SpeechToTextService:
         # Task detection integration
         self._enable_task_detection = enable_task_detection
         self._task_detection_service = task_detection_service
+
+        # Audio debugging
+        self._enable_audio_debugging = enable_audio_debugging
+        self._audio_debug_dir = audio_debug_dir
+        self._audio_debugger: Any | None = None
 
         # Processing state
         self._processing_task: asyncio.Task | None = None
@@ -148,11 +157,28 @@ class SpeechToTextService:
                 frame_duration=vad_config["frame_duration"],
             )
 
+            # Initialize audio debugger if enabled
+            if self._enable_audio_debugging:
+                try:
+                    from .audio_debugger import AudioDebugger
+
+                    self._audio_debugger = AudioDebugger(
+                        enabled=True,
+                        output_dir=self._audio_debug_dir,
+                    )
+                    logger.debug("Audio debugger initialized")
+                except Exception as e:
+                    logger.error(f"Failed to initialize audio debugger: {e}")
+                    self._audio_debugger = None
+            else:
+                self._audio_debugger = None
+
             # Initialize transcriber with optimized settings
             self._transcriber = WhisperTranscriber(
                 model_size=transcriber_config["model_size"],
                 device=transcriber_config["device"],
                 compute_type=transcriber_config["compute_type"],
+                audio_debugger=self._audio_debugger,
             )
 
             # Check if transcriber model is available
