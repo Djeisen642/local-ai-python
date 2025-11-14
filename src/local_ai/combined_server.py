@@ -22,14 +22,23 @@ logger = logging.getLogger(__name__)
 class CombinedServer:
     """Runs both speech-to-text service and MCP server together."""
 
-    def __init__(self, mcp_transport: str = "sse") -> None:
+    def __init__(
+        self,
+        mcp_transport: str = "sse",
+        enable_audio_debugging: bool = False,
+        audio_debug_dir: str | None = None,
+    ) -> None:
         """
         Initialize combined server.
 
         Args:
             mcp_transport: MCP transport type ("stdio" or "sse")
+            enable_audio_debugging: Whether to enable audio debugging
+            audio_debug_dir: Optional directory for audio debug files
         """
         self.mcp_transport = mcp_transport
+        self.enable_audio_debugging = enable_audio_debugging
+        self.audio_debug_dir = audio_debug_dir
         self.stt_service: SpeechToTextService | None = None
         self.task_manager: TaskListManager | None = None
         self.mcp_thread: Thread | None = None
@@ -61,6 +70,8 @@ class CombinedServer:
         self.stt_service = SpeechToTextService(
             enable_task_detection=True,
             task_detection_service=task_detection_service,
+            enable_audio_debugging=self.enable_audio_debugging,
+            audio_debug_dir=self.audio_debug_dir,
         )
 
         logger.info("Combined server initialized with task detection enabled")
@@ -147,6 +158,18 @@ def cli_entry() -> None:
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
+    parser.add_argument(
+        "--debug-audio",
+        action="store_true",
+        help="Enable audio debugging (save processed audio to WAV files)",
+    )
+    parser.add_argument(
+        "--debug-audio-dir",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Custom output directory for audio debug files (default: ~/.cache/local_ai/audio_debug)",
+    )
 
     args = parser.parse_args()
 
@@ -164,7 +187,11 @@ def cli_entry() -> None:
     signal.signal(signal.SIGINT, signal_handler)
 
     # Run combined server
-    server = CombinedServer(mcp_transport=args.mcp_transport)
+    server = CombinedServer(
+        mcp_transport=args.mcp_transport,
+        enable_audio_debugging=args.debug_audio,
+        audio_debug_dir=args.debug_audio_dir,
+    )
     asyncio.run(server.run())
 
 

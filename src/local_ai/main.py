@@ -19,6 +19,8 @@ class SpeechToTextCLI:
         service: SpeechToTextService | None = None,
         force_cpu: bool = False,
         show_confidence_percentage: bool = True,
+        enable_audio_debugging: bool = False,
+        audio_debug_dir: str | None = None,
     ) -> None:
         """
         Initialize the CLI.
@@ -27,8 +29,14 @@ class SpeechToTextCLI:
             service: Optional SpeechToTextService instance. If None, creates a new one.
             force_cpu: Whether to force CPU-only mode
             show_confidence_percentage: Whether to show confidence percentages in output
+            enable_audio_debugging: Whether to enable audio debugging
+            audio_debug_dir: Optional directory for audio debug files
         """
-        self._service = service or SpeechToTextService(force_cpu=force_cpu)
+        self._service = service or SpeechToTextService(
+            force_cpu=force_cpu,
+            enable_audio_debugging=enable_audio_debugging,
+            audio_debug_dir=audio_debug_dir,
+        )
         self._running = False
         self._transcription_count = 0
         self._show_confidence_percentage = show_confidence_percentage
@@ -108,10 +116,18 @@ class SpeechToTextCLI:
                 await self.stop_listening()
 
 
-async def main(force_cpu: bool = False, show_confidence_percentage: bool = True) -> None:
+async def main(
+    force_cpu: bool = False,
+    show_confidence_percentage: bool = True,
+    enable_audio_debugging: bool = False,
+    audio_debug_dir: str | None = None,
+) -> None:
     """Main entry point for the CLI application."""
     cli = SpeechToTextCLI(
-        force_cpu=force_cpu, show_confidence_percentage=show_confidence_percentage
+        force_cpu=force_cpu,
+        show_confidence_percentage=show_confidence_percentage,
+        enable_audio_debugging=enable_audio_debugging,
+        audio_debug_dir=audio_debug_dir,
     )
     try:
         await cli.run()
@@ -330,7 +346,12 @@ def cli_entry_with_args() -> None:
             not args.no_confidence
         )  # Invert the flag since --no-confidence hides it
         asyncio.run(
-            main(force_cpu=args.force_cpu, show_confidence_percentage=show_confidence)
+            main(
+                force_cpu=args.force_cpu,
+                show_confidence_percentage=show_confidence,
+                enable_audio_debugging=args.debug_audio,
+                audio_debug_dir=args.debug_audio_dir,
+            )
         )
 
     except KeyboardInterrupt:
