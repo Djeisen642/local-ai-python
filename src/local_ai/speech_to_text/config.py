@@ -12,6 +12,13 @@ VAD_FRAME_DURATION = 30  # milliseconds
 VAD_SUPPORTED_SAMPLE_RATES = [8000, 16000, 32000, 48000]  # Hz
 VAD_SUPPORTED_FRAME_DURATIONS = [10, 20, 30]  # milliseconds
 
+# VAD Frame Padding Configuration
+# When True, incomplete VAD frames at chunk boundaries are padded with zeros
+# and processed. When False, incomplete frames are skipped. Enable padding to
+# prevent audio cutoff at chunk boundaries. Disable only for debugging or if
+# padding causes issues.
+VAD_PAD_INCOMPLETE_FRAMES = True
+
 # Natural Break Detection
 SHORT_PAUSE_THRESHOLD = 0.3  # seconds - normal speech rhythm pause
 MEDIUM_PAUSE_THRESHOLD = 0.8  # seconds - likely sentence boundary
@@ -417,3 +424,10 @@ AUDIO_DEBUG_DEFAULT_DIR = (
     Path.home() / ".cache" / "local_ai" / "audio_debug"
 )  # Default output directory
 AUDIO_DEBUG_FILENAME_FORMAT = "audio_{date}_{time}_{duration_ms}.wav"  # Filename format
+
+# Audio Debug Logging Configuration
+# When True, logs sample rates at each audio processing step for debugging
+# sample rate issues. Enable when debugging audio speed/quality problems.
+# Disable in production to reduce log verbosity. Has no performance impact
+# when disabled.
+AUDIO_DEBUG_LOG_SAMPLE_RATES = False

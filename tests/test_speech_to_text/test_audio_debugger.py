@@ -302,6 +302,122 @@ class TestAudioDebuggerSaving:
 
 
 @pytest.mark.unit
+class TestAudioDebuggerLogging:
+    """Test cases for AudioDebugger logging functionality."""
+
+    def test_logs_sample_rate_when_enabled(
+        self, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that sample rate and duration are logged when AUDIO_DEBUG_LOG_SAMPLE_RATES is True."""
+        import logging
+
+        # Enable sample rate logging
+        from local_ai.speech_to_text import config
+
+        monkeypatch.setattr(config, "AUDIO_DEBUG_LOG_SAMPLE_RATES", True)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "audio_debug"
+            debugger = AudioDebugger(enabled=True, output_dir=output_dir)
+
+            # Create audio data (1 second at 16kHz)
+            sample_rate = 16000
+            duration_seconds = 1.0
+            num_samples = int(sample_rate * duration_seconds)
+            audio_data = b"\x00\x00" * num_samples
+
+            with caplog.at_level(logging.INFO):
+                result_path = debugger.save_audio_sync(
+                    audio_data, sample_rate=sample_rate
+                )
+
+            # Should have logged sample rate and duration
+            assert result_path is not None
+            assert any(
+                "sample_rate=16000Hz" in record.message
+                and "duration=1.000s" in record.message
+                for record in caplog.records
+            )
+
+    def test_does_not_log_sample_rate_when_disabled(
+        self, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that sample rate is not logged when AUDIO_DEBUG_LOG_SAMPLE_RATES is False."""
+        import logging
+
+        # Disable sample rate logging (default)
+        from local_ai.speech_to_text import config
+
+        monkeypatch.setattr(config, "AUDIO_DEBUG_LOG_SAMPLE_RATES", False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "audio_debug"
+            debugger = AudioDebugger(enabled=True, output_dir=output_dir)
+
+            # Create audio data
+            sample_rate = 16000
+            audio_data = b"\x00\x00" * 16000
+
+            with caplog.at_level(logging.INFO):
+                result_path = debugger.save_audio_sync(
+                    audio_data, sample_rate=sample_rate
+                )
+
+            # Should not have logged sample rate info
+            assert result_path is not None
+            assert not any(
+                "sample_rate=" in record.message and "duration=" in record.message
+                for record in caplog.records
+                if record.levelname == "INFO"
+            )
+
+    def test_logs_different_sample_rates(
+        self, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that different sample rates are logged correctly."""
+        import logging
+
+        # Enable sample rate logging
+        from local_ai.speech_to_text import config
+
+        monkeypatch.setattr(config, "AUDIO_DEBUG_LOG_SAMPLE_RATES", True)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "audio_debug"
+            debugger = AudioDebugger(enabled=True, output_dir=output_dir)
+
+            # Test different sample rates
+            test_cases = [
+                (8000, 0.5, "sample_rate=8000Hz", "duration=0.500s"),
+                (16000, 1.0, "sample_rate=16000Hz", "duration=1.000s"),
+                (48000, 2.0, "sample_rate=48000Hz", "duration=2.000s"),
+            ]
+
+            for (
+                sample_rate,
+                duration_seconds,
+                expected_rate,
+                expected_duration,
+            ) in test_cases:
+                caplog.clear()
+                num_samples = int(sample_rate * duration_seconds)
+                audio_data = b"\x00\x00" * num_samples
+
+                with caplog.at_level(logging.INFO):
+                    result_path = debugger.save_audio_sync(
+                        audio_data, sample_rate=sample_rate
+                    )
+
+                # Should have logged the correct sample rate and duration
+                assert result_path is not None
+                assert any(
+                    expected_rate in record.message
+                    and expected_duration in record.message
+                    for record in caplog.records
+                )
+
+
+@pytest.mark.unit
 class TestAudioDebuggerErrorHandling:
     """Test cases for AudioDebugger error handling."""
 

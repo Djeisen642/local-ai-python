@@ -5,6 +5,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from . import config
 from .audio_capture import AudioCapture, AudioCaptureError
 from .config import DEFAULT_SAMPLE_RATE, ERROR_RECOVERY_SLEEP
 from .interfaces import ProcessingHandler, ProcessingResult
@@ -647,7 +648,25 @@ class SpeechToTextService:
                         for i in range(0, len(audio_chunk), vad_frame_size):
                             frame = audio_chunk[i : i + vad_frame_size]
 
-                            # Only process complete frames
+                            # Handle incomplete frames based on configuration
+                            if len(frame) < vad_frame_size:
+                                if config.VAD_PAD_INCOMPLETE_FRAMES:
+                                    # Pad incomplete frame with zeros
+                                    padding_size = vad_frame_size - len(frame)
+                                    frame = frame + b"\x00" * padding_size
+                                    logger.trace(
+                                        f"Padded incomplete frame: "
+                                        f"{len(frame) - padding_size} -> {len(frame)} bytes"
+                                    )
+                                else:
+                                    # Skip incomplete frame when padding is disabled
+                                    logger.trace(
+                                        f"Skipping incomplete frame: "
+                                        f"{len(frame)} < {vad_frame_size}"
+                                    )
+                                    continue
+
+                            # Process frame (complete or padded)
                             if len(frame) == vad_frame_size:
                                 frames_checked += 1
                                 if self._monitoring_enabled:
@@ -667,11 +686,29 @@ class SpeechToTextService:
                                 f"Checked {frames_checked} VAD frames in chunk, "
                                 f"speech detected: {is_speech}"
                             )
+                    # Chunk is smaller than one VAD frame
+                    elif config.VAD_PAD_INCOMPLETE_FRAMES:
+                        # Pad the chunk to make it a complete frame
+                        padding_size = vad_frame_size - len(audio_chunk)
+                        padded_chunk = audio_chunk + b"\x00" * padding_size
+                        logger.trace(
+                            f"Padded small chunk: "
+                            f"{len(audio_chunk)} -> {len(padded_chunk)} bytes"
+                        )
+
+                        # Process the padded frame
+                        if self._monitoring_enabled:
+                            with PerformanceContext(
+                                "vad", metadata={"chunk_size": len(padded_chunk)}
+                            ):
+                                is_speech = self._vad.is_speech(padded_chunk)
+                        else:
+                            is_speech = self._vad.is_speech(padded_chunk)
                     else:
-                        # Chunk is smaller than one VAD frame, skip VAD for this chunk
+                        # Skip small chunks when padding is disabled
                         is_speech = False
                         logger.trace(
-                            f"Chunk too small: {len(audio_chunk)} < {vad_frame_size}"
+                            f"Skipping small chunk: {len(audio_chunk)} < {vad_frame_size}"
                         )
 
                     if is_speech:
@@ -763,7 +800,7 @@ class SpeechToTextService:
                 ) as ctx:
                     transcription_result = (
                         await self._transcriber.transcribe_audio_with_result(
-                            combined_audio
+                            combined_audio, source_sample_rate=sample_rate
                         )
                     )
                     ctx.set_metadata(
@@ -774,7 +811,9 @@ class SpeechToTextService:
                     )
             else:
                 transcription_result = (
-                    await self._transcriber.transcribe_audio_with_result(combined_audio)
+                    await self._transcriber.transcribe_audio_with_result(
+                        combined_audio, source_sample_rate=sample_rate
+                    )
                 )
 
             if (

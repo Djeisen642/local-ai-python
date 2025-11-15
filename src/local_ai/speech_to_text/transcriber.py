@@ -109,7 +109,10 @@ class WhisperTranscriber:
             return False
 
     def _convert_audio_format(
-        self, audio_data: bytes, target_sample_rate: int = None
+        self,
+        audio_data: bytes,
+        target_sample_rate: int | None = None,
+        source_sample_rate: int | None = None,
     ) -> bytes:
         """
         Convert audio data to format compatible with Whisper.
@@ -117,12 +120,16 @@ class WhisperTranscriber:
         Args:
             audio_data: Raw audio data
             target_sample_rate: Target sample rate for conversion
+            source_sample_rate: Source sample rate of the audio data
 
         Returns:
             Converted audio data in WAV format
         """
         if target_sample_rate is None:
             target_sample_rate = DEFAULT_SAMPLE_RATE
+
+        if source_sample_rate is None:
+            source_sample_rate = DEFAULT_SAMPLE_RATE
 
         if not audio_data or not isinstance(audio_data, bytes):
             return b""
@@ -132,9 +139,9 @@ class WhisperTranscriber:
             return audio_data
 
         # For raw audio data, create a basic WAV file
-        # Assume 16-bit mono audio at target sample rate
+        # Assume 16-bit mono audio at source sample rate
         return self._create_wav_data(
-            audio_data, target_sample_rate, 1, target_sample_rate
+            audio_data, source_sample_rate, 1, target_sample_rate
         )
 
     def _create_wav_data(
@@ -157,6 +164,9 @@ class WhisperTranscriber:
             WAV file data as bytes
         """
         try:
+            # Import config for debug logging flag
+            from .config import AUDIO_DEBUG_LOG_SAMPLE_RATES
+
             # Convert to numpy array for processing
             if channels == 1:
                 # Mono audio - 16-bit signed integers
@@ -167,10 +177,18 @@ class WhisperTranscriber:
                 samples = samples.reshape(-1, channels)
                 samples = np.mean(samples, axis=1).astype(np.int16)
 
-            # Resample if needed
+            # Resample if needed (skip when source == target)
             if source_sample_rate != target_sample_rate:
+                if AUDIO_DEBUG_LOG_SAMPLE_RATES:
+                    logger.debug(
+                        f"Resampling audio: {source_sample_rate}Hz -> {target_sample_rate}Hz"
+                    )
                 samples = self._resample_audio(
                     samples, source_sample_rate, target_sample_rate
+                )
+            elif AUDIO_DEBUG_LOG_SAMPLE_RATES:
+                logger.debug(
+                    f"Skipping resampling: source and target both {source_sample_rate}Hz"
                 )
 
             # Create WAV file in memory
@@ -455,13 +473,14 @@ class WhisperTranscriber:
             return ""
 
     async def transcribe_audio_with_result(
-        self, audio_data: bytes
+        self, audio_data: bytes, source_sample_rate: int | None = None
     ) -> TranscriptionResult:
         """
         Transcribe audio data and return detailed result information.
 
         Args:
             audio_data: Audio data to transcribe
+            source_sample_rate: Source sample rate of the audio data
 
         Returns:
             TranscriptionResult with text, confidence, and timing information
@@ -487,7 +506,9 @@ class WhisperTranscriber:
 
             # Convert audio to Whisper-compatible format
             converted_audio = self._convert_audio_format(
-                audio_data, target_sample_rate=DEFAULT_SAMPLE_RATE
+                audio_data,
+                target_sample_rate=DEFAULT_SAMPLE_RATE,
+                source_sample_rate=source_sample_rate,
             )
 
             if not converted_audio:

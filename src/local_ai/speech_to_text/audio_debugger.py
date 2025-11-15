@@ -94,6 +94,15 @@ class AudioDebugger:
             duration_seconds = num_samples / sample_rate
             duration_ms = duration_seconds * 1000
 
+            # Log sample rate and duration if debug logging is enabled
+            from local_ai.speech_to_text.config import AUDIO_DEBUG_LOG_SAMPLE_RATES
+
+            if AUDIO_DEBUG_LOG_SAMPLE_RATES:
+                logger.info(
+                    f"Audio debug: sample_rate={sample_rate}Hz, "
+                    f"duration={duration_seconds:.3f}s ({duration_ms:.1f}ms)"
+                )
+
             # Generate timestamped filename with microseconds for uniqueness
             from datetime import datetime
 
